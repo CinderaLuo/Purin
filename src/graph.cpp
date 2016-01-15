@@ -43,8 +43,10 @@ Graph ** Initiate_graph (int gpu_num, DataSize *size )
 		g[i]->vertex_outer_num=0;
 
 		/*Allocte the memory to the array in graph_h*/
-		g[i]->edge_src=(int *)malloc(sizeof(int)*(size->max_part_edge_num));
-		g[i]->edge_dst=(int *)malloc(sizeof(int)*(size->max_part_edge_num));
+		g[i]->edge_outer_src=(int *)malloc(sizeof(int)*(size->max_part_edge_num));
+		g[i]->edge_outer_dst=(int *)malloc(sizeof(int)*(size->max_part_edge_num));
+		g[i]->edge_inner_src=(int *)malloc(sizeof(int)*(size->max_part_edge_num));
+		g[i]->edge_inner_dst=(int *)malloc(sizeof(int)*(size->max_part_edge_num));
 		g[i]->vertex_id=(int *)malloc(sizeof(int)*(size->max_part_vertex_num));
 		g[i]->vertex_outer_id=(int *)malloc(sizeof(int)*(size->max_part_vertex_num));
 	}
@@ -55,16 +57,12 @@ Graph ** Initiate_graph (int gpu_num, DataSize *size )
 /* Read the file from [output-name].vertices which is the partition result of vertice */
 /* Add : copy_num[vertex_id-1] is the copy number of vertex_id in all gpus */
 /*       In file, the partition ID from 0 */
-void read_graph_vertices(char *  filename,Graph **g,int  gpu_num,int *copy_num)
+void read_graph_vertices(char *  filename,Graph ** g,int  gpu_num,int *copy_num)
 {
 	char line[1024]; 
 	char *loc=line;
 	int vertex_id;
 	int partition_id;
-	/* vertex_outer_num[i] record the number of OUTER in gpu(i)*/
-	int *vertex_outer_num;
-	/* vertex_num[i] record the number of vertice in gpu(i)*/
-	int *vertex_num;
 	/* check whether the vertex is OUTER or not in each line. If OUTER, flag is true */ 
 	bool flag=true;
 	int tmp_num=0;
@@ -80,8 +78,8 @@ void read_graph_vertices(char *  filename,Graph **g,int  gpu_num,int *copy_num)
 		perror("");
 		exit(1);           
 	}
-	printf("Reading.....\n");
-	int i=0;
+	printf("Reading  %s.....\n",filename);
+	
 	while(fgets(line,1024,f)!=NULL)
 	{
          
@@ -132,6 +130,62 @@ void read_graph_vertices(char *  filename,Graph **g,int  gpu_num,int *copy_num)
 	}   
 }
 /* Read the file from [output-name].edges which is the partition result of edge list */
-void read_graph_edges(char * filename,Graph *g, int gpu_num,int *copy_num)
+void read_graph_edges(char * filename,Graph **g, int gpu_num,int *copy_num)
 {
+	char line[1024];
+	char *loc=line;
+	int  edge_src,edge_dst;
+	int partition_id;
+	File *f=NULL;
+	/* record the idx of edge_inner_src[] and edge_inner_dst[] */
+	int *edge_inner_num;
+	int tmp_num;
+	FILE *f=NULL;
+
+	f=fopen(filename,"r");
+	edge_inner_num=(int *)malloc(sizeof(int)*gpu_num);
+	memset(edge_inner_num,0,sizeof(int)*gpu_num);
+
+	if(f==NULL)
+	{
+		fprintf(stderr,"File open failed : %s ", filename);
+		perror("");
+		exit(1);           
+	}
+    printf("Reading  %s.....\n",filename);
+    while(fgets(line,1024,f)!=NULL)
+    {
+         /* process each line in file, each line is a edge list */
+    	loc=line;
+
+    	edge_src=(int)atoi(line);
+    	loc=strstr(line,",");
+    	edge_dst=(int)atoi(loc);
+    	loc=strstr(loc+1," ");
+    	partition_id=(int)atoi(loc);
+    	LT(partition_id,gpu_num);
+
+         /* Importation :  decide which edges should be processed firstly */
+         // Anthor Method:
+    	 // check whether edge_dst is included in g[partition_id]->vertice_outer_id[]
+    	 // change the type of g[partition_id]->vertice_outer_id[]? vector?
+    	if(copy_num[edge_dst]>1)
+    	{
+    		/* edge_dest is outer */
+            tmp_num=g[partition_id]->edge_num_outer;
+    		g[partition_id]->edge_outer_src[tmp_num]=edge_src;
+    		g[partition_id]->edge_outer_dst[tmp_num]=edge_dst;
+    		g[partition_id]->edge_outer_num=tmp_num+1;
+    	}
+    	else
+    	{
+    		/* edge_dest is inner */
+            tmp_num=edge_inner_num[partition_id];
+            g[partition_id]->edge_inner_src[tmp_num]=edge_src;
+            g[partition_id]->edge_inner_dst[tmp_num]=edge_dst;
+            edge_inner_num[partition_id]=tmp_num+1;
+    	}
+    	tmp_num=g[partition_id]->edge_num;
+    	g[partition_id]->edge_num=tmp_num+1;
+    }
 }

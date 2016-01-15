@@ -61,10 +61,11 @@ int main(int argc, char *argv[])
 
 	g=Initiate_graph (gpu_num,dsize);
 	read_graph_vertices(filename_v, g, gpu_num,copy_num);
-	checkGraphvalue(g,dsize,gpu_num);
+	read_graph_edges(filename_e,g,gpu_num,copy_num);
+    checkGraphvalue(g,dsize,gpu_num);
 
 	printf("\ncopy_num :\n");
-	checkvalue(copy_num,dsize->vertex_num);
+	checkvalue_s(copy_num,dsize->vertex_num);
 
 	return 0; 
 }

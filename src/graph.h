@@ -17,10 +17,6 @@ struct graph_h{
 	*/ 
 	int vertex_num;
 	int edge_num;
-	/* edge_src[e] is the source vertex of Edge e */
-	int *edge_src;
-	/* edge_dst[e] is the destination vertex of Edge e */
-	int *edge_dst;
 	/* vertex_id  record the id set of vertex which be processed in this machine */
 	int *vertex_id;
 
@@ -28,6 +24,14 @@ struct graph_h{
 	*   Divide the vertex into two sets.One which has copy is called OUTER, Other called INNER.
 	*   Record the information of OUTER.
 	*/
+	/* edge_outer_src[e] is the source vertex of Edge e, when the destination vertex is outer*/
+	int *edge_outer_src;
+	/* edge_outer_dst[e] is the destination vertex of Edge e, when the destination vertex is outer*/
+	int *edge_outer_dst;
+	/* edge_inner_src[e] is the source vertex of Edge e, when the destination vertex is inner*/
+	int *edge_inner_src;
+	/* edge_inner_dst[e] is the destition vertex of Edge e, when the destination vertex is inner*/
+	int *edge_inner_dst;
 	int vertex_outer_num;
 	/*  The edge list whose source or destination vertex is OUTER should be processed firstly */
 	int edge_outer_num;
@@ -52,14 +56,18 @@ Graph ** Initiate_graph (int gpu_num,DataSize *size );
 
 /* Read the file from [output-name].vertices which is the partition result of vertice */
 /* Add : copy_num[vertex_id-1] is the copy number of vertex_id in all gpus */
-void read_graph_vertices( char *  filename, Graph **g,int  gpu_num,int *copy_num);
+void read_graph_vertices( char *  filename, Graph ** g,int  gpu_num,int *copy_num);
 
 /* Read the file from [output-name].edges which is the partition result of edge list */
-void read_graph_edges(char *  filename, Graph *g,int gpu_num,int *copy_num);
+void read_graph_edges(char *  filename, Graph ** g,int gpu_num,int *copy_num);
 
 
 /*check.cpp*/
-void checkvalue(int * g, int size);
+/* print the value of array g */
+void checkvalue_s(int * g, int size);
+/* print the value of array g and m*/
+void checkvalue_d(int * g, int *m,int size)
+/* check graph data structure */
 void checkGraphvalue(Graph ** g, DataSize * size,int gpu_num);
 
 #endif // #ifndef GRAPH_H_INCLUDED
