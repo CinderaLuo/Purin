@@ -66,7 +66,7 @@ void read_graph_edges(char *  filename, Graph ** g,int gpu_num,int *copy_num);
 /* print the value of array g */
 void checkvalue_s(int * g, int size);
 /* print the value of array g and m*/
-void checkvalue_d(int * g, int *m,int size)
+void checkvalue_d(int * g, int *m,int size);
 /* check graph data structure */
 void checkGraphvalue(Graph ** g, DataSize * size,int gpu_num);
 

@@ -136,7 +136,7 @@ void read_graph_edges(char * filename,Graph **g, int gpu_num,int *copy_num)
 	char *loc=line;
 	int  edge_src,edge_dst;
 	int partition_id;
-	File *f=NULL;
+	
 	/* record the idx of edge_inner_src[] and edge_inner_dst[] */
 	int *edge_inner_num;
 	int tmp_num;
@@ -160,7 +160,7 @@ void read_graph_edges(char * filename,Graph **g, int gpu_num,int *copy_num)
 
     	edge_src=(int)atoi(line);
     	loc=strstr(line,",");
-    	edge_dst=(int)atoi(loc);
+    	edge_dst=(int)atoi(loc+1);
     	loc=strstr(loc+1," ");
     	partition_id=(int)atoi(loc);
     	LT(partition_id,gpu_num);
@@ -169,10 +169,10 @@ void read_graph_edges(char * filename,Graph **g, int gpu_num,int *copy_num)
          // Anthor Method:
     	 // check whether edge_dst is included in g[partition_id]->vertice_outer_id[]
     	 // change the type of g[partition_id]->vertice_outer_id[]? vector?
-    	if(copy_num[edge_dst]>1)
+    	if(copy_num[edge_dst-1]>1)
     	{
     		/* edge_dest is outer */
-            tmp_num=g[partition_id]->edge_num_outer;
+            tmp_num=g[partition_id]->edge_outer_num;
     		g[partition_id]->edge_outer_src[tmp_num]=edge_src;
     		g[partition_id]->edge_outer_dst[tmp_num]=edge_dst;
     		g[partition_id]->edge_outer_num=tmp_num+1;
