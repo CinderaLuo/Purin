@@ -3,7 +3,7 @@
 #include <malloc.h>
 #include <stdlib.h> 
 /* The head of strcat()*/
-#include <string.h> 
+#include <string.h>
 
 #include  "graph.h"
 #include "timer.h"
@@ -64,6 +64,9 @@ int main(int argc, char *argv[])
 	read_graph_edges(filename_e,g,gpu_num,copy_num);
     checkGraphvalue(g,dsize,gpu_num);
 
+    coding(g,gpu_num);
+    printf("After coding ......\n");
+    checkGraphvalue(g,dsize,gpu_num);
 	printf("\ncopy_num :\n");
 	checkvalue_s(copy_num,dsize->vertex_num);
 

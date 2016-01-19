@@ -18,6 +18,7 @@ struct graph_h{
 	int vertex_num;
 	int edge_num;
 	/* vertex_id  record the id set of vertex which be processed in this machine */
+	/* TODO: change the type to hash map*/
 	int *vertex_id;
 
 	/*
@@ -36,6 +37,7 @@ struct graph_h{
 	/*  The edge list whose source or destination vertex is OUTER should be processed firstly */
 	int edge_outer_num;
 	/*  The vertex_inner_id record the id set of OUTER vertex which be processed in this machine */
+	/* No need */
 	int *vertex_outer_id;          
 };
 typedef struct graph_h Graph;
@@ -69,5 +71,8 @@ void checkvalue_s(int * g, int size);
 void checkvalue_d(int * g, int *m,int size);
 /* check graph data structure */
 void checkGraphvalue(Graph ** g, DataSize * size,int gpu_num);
+
+/* codingIndex.cpp */
+void coding(Graph ** g,int gpu_num);
 
 #endif // #ifndef GRAPH_H_INCLUDED
