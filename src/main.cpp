@@ -68,12 +68,22 @@ int main(int argc, char *argv[])
 	g=Initiate_graph (gpu_num,dsize);
 	read_graph_vertices(filename_v,g,gpu_num,copy_num);
 	read_graph_edges(filename_e,g,gpu_num,copy_num);
+<<<<<<< HEAD
     
     int edge_num=dsize->edge_num;
     origin_g=read_graph_edges_again(filename_e,edge_num);
 	   
     /* renumber the index of vertex in GPU */
     coding(g,gpu_num);
+=======
+    checkGraphvalue(g,dsize,gpu_num);
+
+    coding(g,gpu_num);
+    printf("After coding ......\n");
+    checkGraphvalue(g,dsize,gpu_num);
+	printf("\ncopy_num :\n");
+	checkvalue_s(copy_num,dsize->vertex_num);
+>>>>>>> refs/remotes/origin/master
 
     int vertex_num=dsize->vertex_num;
     int first_vertex=3;

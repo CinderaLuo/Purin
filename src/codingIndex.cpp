@@ -15,8 +15,11 @@ Copyright:
 Author: Xuan Luo
 Date: 19/01/16  09:37
 Description: Index of vertices should be changed before its values assigned to gpu.
+<<<<<<< HEAD
              g[i]->vertex_id[m]=k  record the comparison table of vertex index.
              It means that vertex k becomes vertex m in gpu i.
+=======
+>>>>>>> refs/remotes/origin/master
 */
 
 /* valueVertices d[i]->values[m] represents the values of the vertex (ID is i+1) in one gpu   */
