@@ -18,6 +18,7 @@ struct graph_h{
 	int vertex_num;
 	int edge_num;
 	/* vertex_id  record the id set of vertex which be processed in this machine */
+	/* TODO: change the type to hash map*/
 	int *vertex_id;
 
 	/*
@@ -36,6 +37,7 @@ struct graph_h{
 	/*  The edge list whose source or destination vertex is OUTER should be processed firstly */
 	int edge_outer_num;
 	/*  The vertex_inner_id record the id set of OUTER vertex which be processed in this machine */
+	/* No need */
 	int *vertex_outer_id;          
 };
 typedef struct graph_h Graph;
@@ -61,13 +63,26 @@ void read_graph_vertices( char *  filename, Graph ** g,int  gpu_num,int *copy_nu
 /* Read the file from [output-name].edges which is the partition result of edge list */
 void read_graph_edges(char *  filename, Graph ** g,int gpu_num,int *copy_num);
 
+/* Do not think about preprocesing time */
+/* The following functions just are used to [algorithm]_cpu() to check the correctness. */
+struct graph_cpu{
+	int *edge_src;
+	int *edge_dst;
+};
+typedef struct graph_cpu Graph_cpu;
+/* In fact, read the [input].edges again. TODO: Integrate into read_graph_edges() */
+Graph_cpu * read_graph_edges_again(char * filename, int edge_num);
+
 
 /*check.cpp*/
 /* print the value of array g */
 void checkvalue_s(int * g, int size);
 /* print the value of array g and m*/
-void checkvalue_d(int * g, int *m,int size)
+void checkvalue_d(int * g, int *m,int size);
 /* check graph data structure */
 void checkGraphvalue(Graph ** g, DataSize * size,int gpu_num);
+
+/* codingIndex.cpp */
+void coding(Graph ** g,int gpu_num);
 
 #endif // #ifndef GRAPH_H_INCLUDED

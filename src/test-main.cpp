@@ -5,9 +5,8 @@
 /* The head of strcat()*/
 #include <string.h>
 
-#include "graph.h"
+#include  "graph.h"
 #include "timer.h"
-#include "algorithm.h"
 
 
 /*
@@ -24,8 +23,6 @@ int main(int argc, char *argv[])
 
 	/* declarations */
 	Graph ** g;
-	/* check the algorithm running on cpu */
-	Graph_cpu * origin_g;
 	DataSize * dsize;
 	char *filename;
 	/* Record the path to [input].vertices */
@@ -33,11 +30,8 @@ int main(int argc, char *argv[])
 	/* Record the path to [input].edges */
 	char *filename_e;
 	int gpu_num;
-	/* CPU need to known all the copy number of vertices in the gpus */
+	/* CPU need to known all the copy number of vertices in the gpus*/
 	int *copy_num;
-    int *value_cpu;
-    int *value_gpu;
-
 	if(argc<8)
 	{
 		printf("Input Command is Error!\n");
@@ -68,24 +62,13 @@ int main(int argc, char *argv[])
 	g=Initiate_graph (gpu_num,dsize);
 	read_graph_vertices(filename_v,g,gpu_num,copy_num);
 	read_graph_edges(filename_e,g,gpu_num,copy_num);
-    
-    int edge_num=dsize->edge_num;
-    origin_g=read_graph_edges_again(filename_e,edge_num);
-	   
-    /* renumber the index of vertex in GPU */
-    coding(g,gpu_num);
+    checkGraphvalue(g,dsize,gpu_num);
 
-    int vertex_num=dsize->vertex_num;
-    int first_vertex=3;
-    value_cpu=(int *)malloc(sizeof(int)*vertex_num);
-    value_gpu=(int *)malloc(sizeof(int)*vertex_num);
-    bfs_cpu(origin_g,value_cpu,dsize,first_vertex);
-    print_bfs_values(value_cpu,vertex_num);
-    free(origin_g);
-    /*
-    bfs_gpu(g,gpu_num,value_gpu,dsize,first_vertex,copy_num);
-    check_value_s(value_cpu,value_gpu);
-    */
+    coding(g,gpu_num);
+    printf("After coding ......\n");
+    checkGraphvalue(g,dsize,gpu_num);
+	printf("\ncopy_num :\n");
+	checkvalue_s(copy_num,dsize->vertex_num);
+
 	return 0; 
 }
-

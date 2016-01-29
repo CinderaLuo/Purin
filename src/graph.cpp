@@ -136,7 +136,7 @@ void read_graph_edges(char * filename,Graph **g, int gpu_num,int *copy_num)
 	char *loc=line;
 	int  edge_src,edge_dst;
 	int partition_id;
-	File *f=NULL;
+	
 	/* record the idx of edge_inner_src[] and edge_inner_dst[] */
 	int *edge_inner_num;
 	int tmp_num;
@@ -160,7 +160,7 @@ void read_graph_edges(char * filename,Graph **g, int gpu_num,int *copy_num)
 
     	edge_src=(int)atoi(line);
     	loc=strstr(line,",");
-    	edge_dst=(int)atoi(loc);
+    	edge_dst=(int)atoi(loc+1);
     	loc=strstr(loc+1," ");
     	partition_id=(int)atoi(loc);
     	LT(partition_id,gpu_num);
@@ -169,10 +169,10 @@ void read_graph_edges(char * filename,Graph **g, int gpu_num,int *copy_num)
          // Anthor Method:
     	 // check whether edge_dst is included in g[partition_id]->vertice_outer_id[]
     	 // change the type of g[partition_id]->vertice_outer_id[]? vector?
-    	if(copy_num[edge_dst]>1)
+    	if(copy_num[edge_dst-1]>1)
     	{
     		/* edge_dest is outer */
-            tmp_num=g[partition_id]->edge_num_outer;
+            tmp_num=g[partition_id]->edge_outer_num;
     		g[partition_id]->edge_outer_src[tmp_num]=edge_src;
     		g[partition_id]->edge_outer_dst[tmp_num]=edge_dst;
     		g[partition_id]->edge_outer_num=tmp_num+1;
@@ -188,4 +188,52 @@ void read_graph_edges(char * filename,Graph **g, int gpu_num,int *copy_num)
     	tmp_num=g[partition_id]->edge_num;
     	g[partition_id]->edge_num=tmp_num+1;
     }
+}
+
+
+/* Do not think about preprocesing time */
+/* The following functions just are used to [algorithm]_cpu() to check the correctness. */
+
+/* In fact, read the [input].edges again. TODO: Integrate into read_graph_edges() */
+Graph_cpu * read_graph_edges_again(char * filename, int edge_num)
+{
+    Graph_cpu *g=(Graph_cpu *)malloc(sizeof(Graph_cpu));
+    g->edge_src=(int *)malloc(sizeof(int)*edge_num);
+    g->edge_dst=(int *)malloc(sizeof(int)*edge_num);
+    if(g==NULL)
+    {
+    	perror("Out of memory");
+    	exit(1);
+    }
+    char line[1024];
+    char *loc=line;
+    int edge_src,edge_dst;
+
+    FILE *f=NULL;
+    f=fopen(filename,"r");
+    if(f==NULL)
+    {
+       	fprintf(stderr,"File open failed : %s ", filename);
+		perror("");
+		exit(1);       
+    }
+    int index=0;
+    printf("Reading  %s again .....\n",filename);
+    while(fgets(line,1024,f)!=NULL)
+    {
+    	loc=line;
+    	edge_src=(int)atoi(line);
+    	loc=strstr(line,",");
+    	edge_dst=(int)atoi(loc+1);
+        g->edge_src[index]=edge_src;
+        g->edge_dst[index]=edge_dst;
+        index++;
+        if (index>edge_num)
+        {
+        	printf("Edge_num is wrong!\n");
+        	perror("");
+        	exit(1);
+        }
+    }
+    return g;
 }
