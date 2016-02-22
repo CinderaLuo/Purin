@@ -1,4 +1,4 @@
-﻿#pragma   once 
+#pragma   once 
 
 #include <stdio.h>
 #include <malloc.h>
@@ -129,6 +129,9 @@ void read_graph_vertices(char *  filename,Graph ** g,int  gpu_num,int *copy_num)
 		copy_num[vertex_id-1]=cp_num;           
 	}   
 }
+
+
+
 /* Read the file from [output-name].edges which is the partition result of edge list */
 void read_graph_edges(char * filename,Graph **g, int gpu_num,int *copy_num)
 {
@@ -190,6 +193,18 @@ void read_graph_edges(char * filename,Graph **g, int gpu_num,int *copy_num)
     }
 }
 
+
+/* Record the max size of outer vertex in GPUs which is used for determining the block size */
+int max_num_outer_vertex(Graph **g, int gpu_num)
+{
+	int max=0;
+    for (int i = 0; i < gpu_num; ++i)
+    {
+    	if(max < g[i]->edge_outer_num)
+    		max=g[i]->edge_outer_num;
+    }
+    return max;
+}
 
 /* Do not think about preprocesing time */
 /* The following functions just are used to [algorithm]_cpu() to check the correctness. */

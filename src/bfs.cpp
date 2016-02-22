@@ -73,3 +73,34 @@ void print_bfs_values(const int * const values, int const size) {
 	*/
 	free(m);
 }
+
+/* BFS algorithm on GPU */
+/*
+void bfs_gpu(Graph **g,int gpu_num,int *value_gpu,DataSize *dsize, int first_vertex, int *copy_num)
+{
+	int  **h_value, **d_value;
+	h_value=(int **)malloc(sizeof(int *)* gpu_num);
+    cudaMalloc((void **)(&d_value),sizeof(int *)*gpu_num);
+	int **h_edge_src,**h_edge_dst,**d_edge_src, **d_edge_dst;
+    h_edge_src=(int **)malloc(sizeof(int *)*gpu_num);
+    h_edge_dst=(int **)malloc(sizeof(int *)*gpu_num);
+    cudaMalloc((void **)(&d_edge_src),sizeof(int *)*gpu_num);
+    cudaMalloc((void **)(&d_edge_dst),sizeof(int *)*gpu_num);
+
+    
+    for (int i = 0; i < gpu_num; ++i)
+    {
+    	int vertex_num_part=g[i]->vertex_num;
+    	h_value[i]=(int *)malloc(sizeof(int)*vertex_num_part);
+    	memset(h_value[i],0,sizeof(int)*vertex_num_part);
+
+    	//int edge_num_part=g[i]->edge_num;
+    	h_edge_src[i]=g[i]->edge_src;
+    	h_edge_dst[i]=g[i]->edge_dst;
+    }
+    cudaMemcpy((void *)d_value,(void *)h_value,sizeof(int *)*gpu_num,cudaMemcpyHostToDevice);
+    cudaMemcpy((void *)d_edge_src,(void *)d_edge_src,sizeof(int *)*gpu_num,cudaMemcpyHostToDevice);
+    cudaMemcpy((void *)d_edge_dst,(void *)d_edge_dst,sizeof(int *)*gpu_num,cudaMemcpyHostToDevice);
+
+}
+*/

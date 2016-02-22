@@ -10,6 +10,8 @@ Description: This file defines the data structures for Graph
 Note: IDs for vertice start from 1
 */
 
+// >> vertex_num 
+#define MAX_POSITION  -1
 /* The graph data structure is an EDGE LIST. Each machine have one. */
 struct graph_h{
 	/*
@@ -58,7 +60,8 @@ Graph ** Initiate_graph (int gpu_num,DataSize *size );
 
 /* Read the file from [output-name].vertices which is the partition result of vertice */
 /* Add : copy_num[vertex_id-1] is the copy number of vertex_id in all gpus */
-void read_graph_vertices( char *  filename, Graph ** g,int  gpu_num,int *copy_num);
+void read_graph_vertices( char *  filename, Graph ** g, int  gpu_num, int *copy_num);
+
 
 /* Read the file from [output-name].edges which is the partition result of edge list */
 void read_graph_edges(char *  filename, Graph ** g,int gpu_num,int *copy_num);
@@ -84,5 +87,7 @@ void checkGraphvalue(Graph ** g, DataSize * size,int gpu_num);
 
 /* codingIndex.cpp */
 void coding(Graph ** g,int gpu_num);
+/* record position of every vertex*/
+int ** recordPosition(Graph **g, int gpu_num, int vertex_num);
 
 #endif // #ifndef GRAPH_H_INCLUDED

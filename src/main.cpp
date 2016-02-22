@@ -35,6 +35,7 @@ int main(int argc, char *argv[])
 	int gpu_num;
 	/* CPU need to known all the copy number of vertices in the gpus */
 	int *copy_num;
+	int **position_id;
     int *value_cpu;
     int *value_gpu;
 
@@ -68,22 +69,24 @@ int main(int argc, char *argv[])
 	g=Initiate_graph (gpu_num,dsize);
 	read_graph_vertices(filename_v,g,gpu_num,copy_num);
 	read_graph_edges(filename_e,g,gpu_num,copy_num);
-<<<<<<< HEAD
+
     
     int edge_num=dsize->edge_num;
     origin_g=read_graph_edges_again(filename_e,edge_num);
 	   
     /* renumber the index of vertex in GPU */
-    coding(g,gpu_num);
-=======
+    //coding(g,gpu_num);
+
     checkGraphvalue(g,dsize,gpu_num);
 
     coding(g,gpu_num);
+    position_id=recordPosition(g,gpu_num,dsize->vertex_num);
+
     printf("After coding ......\n");
     checkGraphvalue(g,dsize,gpu_num);
 	printf("\ncopy_num :\n");
 	checkvalue_s(copy_num,dsize->vertex_num);
->>>>>>> refs/remotes/origin/master
+
 
     int vertex_num=dsize->vertex_num;
     int first_vertex=3;
@@ -92,10 +95,10 @@ int main(int argc, char *argv[])
     bfs_cpu(origin_g,value_cpu,dsize,first_vertex);
     print_bfs_values(value_cpu,vertex_num);
     free(origin_g);
-    /*
-    bfs_gpu(g,gpu_num,value_gpu,dsize,first_vertex,copy_num);
-    check_value_s(value_cpu,value_gpu);
-    */
+    
+    //bfs_gpu(g,gpu_num,value_gpu,dsize,first_vertex,copy_num);
+    //check_value_s(value_cpu,value_gpu);
+    
 	return 0; 
 }
 
