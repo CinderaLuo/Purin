@@ -15,4 +15,7 @@ void bfs_cpu(Graph_cpu *g,int *value_cpu,DataSize *dsize,int first_vertex);
 // print info about bfs values
 void print_bfs_values(const int * const values, int const size);
 
+void bfs_gpu(Graph **g,int gpu_num,int *value_gpu,DataSize *dsize, int first_vertex, int *copy_num, int **position_id);
+
+
 #endif

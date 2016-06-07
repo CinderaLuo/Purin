@@ -9,7 +9,6 @@ Date: 13/01/16 11:00
 Description: This file defines the data structures for Graph
 Note: IDs for vertice start from 1
 */
-
 // >> vertex_num 
 #define MAX_POSITION  -1
 /* The graph data structure is an EDGE LIST. Each machine have one. */
@@ -44,6 +43,16 @@ struct graph_h{
 };
 typedef struct graph_h Graph;
 
+struct graph_d
+{
+	int * d_edge_outer_src;
+	int * d_edge_outer_dst;
+	int * d_edge_inner_src;
+	int * d_edge_inner_dst;
+	int * d_value;
+	int * d_flag;
+};
+
 struct dataSize_h{
 	int vertex_num;
 	int edge_num;
@@ -60,11 +69,19 @@ Graph ** Initiate_graph (int gpu_num,DataSize *size );
 
 /* Read the file from [output-name].vertices which is the partition result of vertice */
 /* Add : copy_num[vertex_id-1] is the copy number of vertex_id in all gpus */
-void read_graph_vertices( char *  filename, Graph ** g, int  gpu_num, int *copy_num);
-
+void read_graph_vertices( char *  filename, Graph ** g,int  gpu_num,int *copy_num);
+void read_graph_vertices_m( char *  filename, Graph ** g,int  gpu_num,int *copy_num, int *map_copy);
 
 /* Read the file from [output-name].edges which is the partition result of edge list */
 void read_graph_edges(char *  filename, Graph ** g,int gpu_num,int *copy_num);
+/* Read Graph **g to store the max_part_vertex_num and max_part_edge_num which be needed in DataSize *dsize*/
+void read_graph_size(Graph **g, DataSize *dsize, int gpu_num);
+
+/* Record the max size of outer edge lists in GPUs which is used for determining the block size */
+int max_num_outer_edge(Graph **g, int gpu_num);
+
+/* Record the min size of outer edge lsits in GPUs which is used for determining the block size */
+int min_num_outer_edge(Graph **g, int gpu_num);
 
 /* Do not think about preprocesing time */
 /* The following functions just are used to [algorithm]_cpu() to check the correctness. */
@@ -84,6 +101,7 @@ void checkvalue_s(int * g, int size);
 void checkvalue_d(int * g, int *m,int size);
 /* check graph data structure */
 void checkGraphvalue(Graph ** g, DataSize * size,int gpu_num);
+void checkResult(int *g, int *m, int num);
 
 /* codingIndex.cpp */
 void coding(Graph ** g,int gpu_num);

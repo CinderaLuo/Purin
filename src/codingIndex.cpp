@@ -101,13 +101,16 @@ int ** recordPosition(Graph **g, int gpu_num, int vertex_num)
 {
 	int ** position_id;
 	int vertex_id;
-	*position_id=(int *)malloc(sizeof(int *)*vertex_num);
+	printf("malloc *position_id\n");
+	position_id=(int **)malloc(sizeof(int *)*vertex_num);
 	//omp parallel for 
+	printf("malloc position_id[i]\n");
 	for (int i = 0; i < vertex_num; ++i)
 	{
 		position_id[i]=(int*)malloc(sizeof(int)*gpu_num);
 		memset(position_id[i],MAX_POSITION, sizeof(int)*gpu_num);
 	}
+	printf("malloc is ok!\n");
 	for (int i = 0; i < gpu_num; ++i)
 	{
 		for(int j=0; j < g[i]->vertex_num;++j)
@@ -116,7 +119,6 @@ int ** recordPosition(Graph **g, int gpu_num, int vertex_num)
 			vertex_id=vertex_id-1;
             position_id[vertex_id][i]=j;
 		}
-		
 	}
 	/* print */
 	printf("Position_id\n");

@@ -1,5 +1,5 @@
 
-#pragma once 
+//#pragma once 
 #include <stdio.h>
 #include "graph.h"
 
@@ -52,4 +52,23 @@ void checkGraphvalue(Graph ** g, DataSize * size,int gpu_num)
         edge_inner_num=g[i]->edge_num-g[i]->edge_outer_num;
         checkvalue_d(g[i]->edge_inner_src,g[i]->edge_inner_dst,edge_inner_num);
 	}
+}
+
+void checkResult(int *g, int *m, int num)
+{
+   int i=0;
+   for (i = 0; i < num; ++i)
+   {
+   	  if (g[i]!=m[i])
+   	  {
+   	  	 break;
+   	  }
+   }
+   if (i<num)
+   {
+   	  printf("Check Fail!\n");
+   }
+   else
+   	printf("Check Success!\n");
+
 }

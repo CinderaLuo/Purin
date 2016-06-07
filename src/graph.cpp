@@ -1,11 +1,10 @@
-#pragma   once 
-
 #include <stdio.h>
 #include <malloc.h>
 /* The head file of perror(), atoi() */
 #include <stdlib.h> 
 /* The head file of strstr()*/
 #include <string.h>
+#include <math.h>
 
 /* The function and the graph data structure is defined in the "graph.h" */
 #include "graph.h"
@@ -30,13 +29,13 @@ HDRF has been integrated in GraphLab PowerGraph!
 }
 /* Allocate the memory for each machine to store the graph data */ 
 /* Add: use size to record the graph data informatition */
-Graph ** Initiate_graph (int gpu_num, DataSize *size )
+Graph**  Initiate_graph (int gpu_num, DataSize *size )
 {
 	Graph **g=(Graph **)malloc(sizeof(Graph*)*gpu_num);
 	for(int i=0;i<gpu_num;i++)
 	{
 		/* Easy to forget */
-		g[i]=(Graph *)malloc(sizeof(Graph)*gpu_num);
+		g[i]=(Graph *)malloc(sizeof(Graph));
 		g[i]->edge_num=0;
 		g[i]->vertex_num=0;
 		g[i]->edge_outer_num=0;
@@ -57,7 +56,7 @@ Graph ** Initiate_graph (int gpu_num, DataSize *size )
 /* Read the file from [output-name].vertices which is the partition result of vertice */
 /* Add : copy_num[vertex_id-1] is the copy number of vertex_id in all gpus */
 /*       In file, the partition ID from 0 */
-void read_graph_vertices(char *  filename,Graph ** g,int  gpu_num,int *copy_num)
+void read_graph_vertices(char *  filename, Graph ** g,int  gpu_num,int *copy_num)
 {
 	char line[1024]; 
 	char *loc=line;
@@ -130,11 +129,96 @@ void read_graph_vertices(char *  filename,Graph ** g,int  gpu_num,int *copy_num)
 	}   
 }
 
+/* add map_copy */
+void read_graph_vertices_m(char *  filename, Graph **g,int  gpu_num,int *copy_num,int *map_copy)
+{
+	char line[1024]; 
+	char *loc=line;
+	int vertex_id;
+	int partition_id;
+	/* check whether the vertex is OUTER or not in each line. If OUTER, flag is true */ 
+	bool flag=true;
+	int tmp_num=0;
+	int cp_num=0;
+	int mp_copy=0;
+	FILE *f=NULL;
+	int tmp_size=log(gpu_num)/log(2);
+	int size=0;
+	if(pow(2,tmp_size)!=gpu_num)
+          size=tmp_size+1;
+      else
+      	size=tmp_size;
+
+	/* try to open the file */
+	f=fopen(filename,"r");
+	if(f==NULL)
+	{
+		fprintf(stderr,"File open failed : %s ", filename);
+		perror("");
+		exit(1);           
+	}
+	printf("Reading  %s.....\n",filename);
+	
+	while(fgets(line,1024,f)!=NULL)
+	{
+         
+		/* process each line in file */
+		cp_num=0;
+		mp_copy=0;
+		flag=true;
+
+		loc=line;
+		/* first number*/
+		vertex_id=(int)atoi(line);
+		
+		/* second number */
+		loc=strstr(line," ");
+		//loc=loc+1;
+		partition_id=(int)atoi(loc);
+		LT(partition_id,gpu_num);
+		tmp_num=g[partition_id]->vertex_num;
+		g[partition_id]->vertex_id[tmp_num++]=vertex_id;
+		g[partition_id]->vertex_num=tmp_num;
+		cp_num++;
+		mp_copy=partition_id;
+        
+
+		/* third number and later */
+		loc=strstr(loc+1," ");
+		if(loc==NULL) flag=false;
+		while(loc!=NULL)
+		{
+			/* record the OUTER */
+			tmp_num=g[partition_id]->vertex_outer_num;
+			g[partition_id]->vertex_outer_id[tmp_num++]=vertex_id;
+			g[partition_id]->vertex_outer_num=tmp_num;
+
+			partition_id=(int)atoi(loc);
+			LT(partition_id,gpu_num);
+			tmp_num=g[partition_id]->vertex_num;
+			g[partition_id]->vertex_id[tmp_num++]=vertex_id;
+			g[partition_id]->vertex_num=tmp_num;
+			loc=strstr(loc+1," ");
+			cp_num++; 
+			mp_copy=mp_copy<<size;
+			mp_copy=mp_copy||partition_id; 
+		}
+		if(flag==true)
+		{
+			tmp_num=g[partition_id]->vertex_outer_num;
+			g[partition_id]->vertex_outer_id[tmp_num++]=vertex_id;
+			g[partition_id]->vertex_outer_num=tmp_num;
+		}
+		copy_num[vertex_id-1]=cp_num;
+		map_copy[vertex_id-1]=mp_copy;           
+	}   
+}
 
 
 /* Read the file from [output-name].edges which is the partition result of edge list */
 void read_graph_edges(char * filename,Graph **g, int gpu_num,int *copy_num)
 {
+
 	char line[1024];
 	char *loc=line;
 	int  edge_src,edge_dst;
@@ -167,7 +251,6 @@ void read_graph_edges(char * filename,Graph **g, int gpu_num,int *copy_num)
     	loc=strstr(loc+1," ");
     	partition_id=(int)atoi(loc);
     	LT(partition_id,gpu_num);
-
          /* Importation :  decide which edges should be processed firstly */
          // Anthor Method:
     	 // check whether edge_dst is included in g[partition_id]->vertice_outer_id[]
@@ -193,9 +276,24 @@ void read_graph_edges(char * filename,Graph **g, int gpu_num,int *copy_num)
     }
 }
 
+void read_graph_size(Graph **g, DataSize *dsize, int gpu_num)
+{
 
-/* Record the max size of outer vertex in GPUs which is used for determining the block size */
-int max_num_outer_vertex(Graph **g, int gpu_num)
+	int max_vertex_num=0;
+	int max_edge_num=0;
+   	for (int i = 0; i < gpu_num; ++i)
+	{
+		if(max_vertex_num<g[i]->vertex_num)
+			max_vertex_num=g[i]->vertex_num;
+		if (max_edge_num<g[i]->edge_num)
+		    max_edge_num=g[i]->edge_num;
+	}
+	dsize->max_part_vertex_num=max_vertex_num;
+	dsize->max_part_edge_num=max_edge_num;
+}
+
+/* Record the max size of outer edge lsits in GPUs which is used for determining the block size */
+int max_num_outer_edge(Graph **g, int gpu_num)
 {
 	int max=0;
     for (int i = 0; i < gpu_num; ++i)
@@ -204,6 +302,20 @@ int max_num_outer_vertex(Graph **g, int gpu_num)
     		max=g[i]->edge_outer_num;
     }
     return max;
+}
+
+/* Record the min size of outer edge lsits in GPUs which is used for determining the block size */
+int min_num_outer_edge(Graph **g, int gpu_num)
+{
+	int min=g[0]->edge_outer_num;
+	for (int i = 0; i < gpu_num; ++i)
+	{
+		if (min>g[i]->edge_outer_num)
+		{
+			min=g[i]->edge_outer_num;
+		}
+	}
+	return min;
 }
 
 /* Do not think about preprocesing time */

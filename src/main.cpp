@@ -8,8 +8,7 @@
 #include "graph.h"
 #include "timer.h"
 #include "algorithm.h"
-
-
+//#include "cuda_runtime.h"
 /*
 Name: MAIN
 Copyright: 
@@ -23,11 +22,10 @@ int main(int argc, char *argv[])
 {
 
 	/* declarations */
-	Graph ** g;
+	Graph **g;
 	/* check the algorithm running on cpu */
 	Graph_cpu * origin_g;
 	DataSize * dsize;
-	char *filename;
 	/* Record the path to [input].vertices */
 	char *filename_v;
 	/* Record the path to [input].edges */
@@ -43,8 +41,9 @@ int main(int argc, char *argv[])
 	{
 		printf("Input Command is Error!\n");
 		printf("Description:\n");
+		//printf("Input filename1 Input filename2 vertex_num  edge_num gpu_num \n ");
 		printf("Input filename1 Input filename2 vertex_num  edge_num   max_part_vertex_num  max_part_edge_num  gpu_num \n ");
-		printf("eg: \/home\/xxling\/amazon.vertices \/hofme\/xxling\/amazon.edges 735322 5158012 356275 880813 4 \n"); 
+		//printf("eg: \/home\/xxling\/amazon.vertices \/hofme\/xxling\/amazon.edges 735322 5158012 356275 880813 4 \n"); 
 		printf("Note:\n");
 		/* TODO print detailed informatition about input command. */
 		printf("....to be continued ...\n");
@@ -69,35 +68,45 @@ int main(int argc, char *argv[])
 	g=Initiate_graph (gpu_num,dsize);
 	read_graph_vertices(filename_v,g,gpu_num,copy_num);
 	read_graph_edges(filename_e,g,gpu_num,copy_num);
-
-    
+    //read_graph_size(g,dsize,gpu_num);
+     
     int edge_num=dsize->edge_num;
     origin_g=read_graph_edges_again(filename_e,edge_num);
 	   
-    /* renumber the index of vertex in GPU */
-    //coding(g,gpu_num);
-
-    checkGraphvalue(g,dsize,gpu_num);
-
-    coding(g,gpu_num);
-    position_id=recordPosition(g,gpu_num,dsize->vertex_num);
-
-    printf("After coding ......\n");
-    checkGraphvalue(g,dsize,gpu_num);
-	printf("\ncopy_num :\n");
-	checkvalue_s(copy_num,dsize->vertex_num);
-
+	/*
+    // result of preprocessing
+    printf("Graph\n");
+    for (int i = 0; i < gpu_num; ++i)
+    {
+    	printf("outer\n");
+    	for (int j = 0; j< g[i]->edge_outer_num; ++j)
+    	{
+    		printf("%d GPU: %d %d\n",i,g[i]->edge_outer_src[j],g[i]->edge_outer_dst[j] );
+    	}
+        printf("inner\n");
+        for (int j = 0; j<(g[i]->edge_num-g[i]->edge_outer_num); ++j)
+    	{
+    		printf("%d GPU: %d %d\n",i,g[i]->edge_inner_src[j],g[i]->edge_inner_dst[j] );
+    	}
+    }
+	printf("Graph_cpu\n");
+	for (int i = 0; i <dsize->edge_num; ++i)
+	{
+		printf("%d %d\n",origin_g->edge_src[i],origin_g->edge_dst[i]);
+	}
+	*/
 
     int vertex_num=dsize->vertex_num;
-    int first_vertex=3;
+    int first_vertex=1;
     value_cpu=(int *)malloc(sizeof(int)*vertex_num);
     value_gpu=(int *)malloc(sizeof(int)*vertex_num);
     bfs_cpu(origin_g,value_cpu,dsize,first_vertex);
     print_bfs_values(value_cpu,vertex_num);
     free(origin_g);
     
-    //bfs_gpu(g,gpu_num,value_gpu,dsize,first_vertex,copy_num);
-    //check_value_s(value_cpu,value_gpu);
+    bfs_gpu(g,gpu_num,value_gpu,dsize,first_vertex,copy_num,position_id);
+    print_bfs_values(value_gpu,vertex_num);
+    checkResult(value_cpu,value_gpu,vertex_num);
     
 	return 0; 
 }
