@@ -72,6 +72,7 @@ int main(int argc, char *argv[])
      
     int edge_num=dsize->edge_num;
     origin_g=read_graph_edges_again(filename_e,edge_num);
+    edgelsit_to_csr(origin_g,dsize->vertex_num,edge_num);
 	   
 	/*
     // result of preprocessing
@@ -97,16 +98,16 @@ int main(int argc, char *argv[])
 	*/
 
     int vertex_num=dsize->vertex_num;
-    int first_vertex=1;
-    value_cpu=(int *)malloc(sizeof(int)*vertex_num);
-    value_gpu=(int *)malloc(sizeof(int)*vertex_num);
+    int first_vertex=3;
+    value_cpu=(int *)malloc(sizeof(int)*(vertex_num+1));
+    value_gpu=(int *)malloc(sizeof(int)*(vertex_num+1));
     bfs_cpu(origin_g,value_cpu,dsize,first_vertex);
-    print_bfs_values(value_cpu,vertex_num);
+    print_bfs_values(value_cpu,vertex_num+1);
     free(origin_g);
     
     bfs_gpu(g,gpu_num,value_gpu,dsize,first_vertex,copy_num,position_id);
-    print_bfs_values(value_gpu,vertex_num);
-    checkResult(value_cpu,value_gpu,vertex_num);
+    print_bfs_values(value_gpu,vertex_num+1);
+    checkResult(value_cpu,value_gpu,vertex_num+1);
     
 	return 0; 
 }

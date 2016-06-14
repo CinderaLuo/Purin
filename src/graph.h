@@ -88,10 +88,13 @@ int min_num_outer_edge(Graph **g, int gpu_num);
 struct graph_cpu{
 	int *edge_src;
 	int *edge_dst;
+	int *vertex_begin;
+	int *vertex_dst;
 };
 typedef struct graph_cpu Graph_cpu;
 /* In fact, read the [input].edges again. TODO: Integrate into read_graph_edges() */
 Graph_cpu * read_graph_edges_again(char * filename, int edge_num);
+void edgelsit_to_csr( Graph_cpu *g, int vertex_num, int edge_num);
 
 
 /*check.cpp*/
