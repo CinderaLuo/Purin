@@ -1,3 +1,4 @@
+//#define PRINT_CHECK_G
 #include <stdio.h>
 #include <malloc.h>
 /* The head file of perror(), atoi() */
@@ -363,4 +364,53 @@ Graph_cpu * read_graph_edges_again(char * filename, int edge_num)
         }
     }
     return g;
+}
+
+/* parse the edgelist in Graph_cpu to csr structure in Graph_cpu*/
+void edgelsit_to_csr( Graph_cpu *g, int vertex_num, int edge_num)
+{
+   g->vertex_begin=(int *)malloc(sizeof(int)*(vertex_num+1));
+   g->vertex_dst=(int *)malloc(sizeof(int)*edge_num);
+   int index=0;
+   int vertex_id=0;
+   int count=0;
+   int begin_id=0;
+   g->vertex_begin[begin_id++]=index;
+   while(vertex_id<=vertex_num)
+   {
+   	 for (int i = 0; i < edge_num; ++i)
+   	 {
+   		if (g->edge_src[i]==vertex_id)
+   		{
+   			g->vertex_dst[count++]= g->edge_dst[i];
+   			index++;
+   		}
+   	 }
+   	 g->vertex_begin[begin_id++]=index;
+   	 vertex_id++;
+   }
+
+ #ifdef PRINT_CHECK_G
+   printf("edge_src\n");
+   for (int i = 0; i < edge_num; ++i)
+   {
+   	   printf("%d\t",g->edge_src[i]);
+   }
+   printf("\nedge_dst\n");
+   for (int i = 0; i < edge_num; ++i)
+   {
+   	   printf("%d\t",g->edge_dst[i]);
+   }
+   printf("\nvertex_begin\n");
+   for (int i = 0; i < begin_id; ++i)
+   {
+   	  printf("%d\t",g->vertex_begin[i]);
+   }
+   printf("\nvertex_dst\n");
+   for (int i = 0; i < count; ++i)
+   {
+   	  printf("%d\t",g->vertex_dst[i] );
+   }
+   printf("\n");
+ #endif 
 }

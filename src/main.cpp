@@ -71,43 +71,25 @@ int main(int argc, char *argv[])
     //read_graph_size(g,dsize,gpu_num);
      
     int edge_num=dsize->edge_num;
-    origin_g=read_graph_edges_again(filename_e,edge_num);
-	   
-	/*
-    // result of preprocessing
-    printf("Graph\n");
-    for (int i = 0; i < gpu_num; ++i)
-    {
-    	printf("outer\n");
-    	for (int j = 0; j< g[i]->edge_outer_num; ++j)
-    	{
-    		printf("%d GPU: %d %d\n",i,g[i]->edge_outer_src[j],g[i]->edge_outer_dst[j] );
-    	}
-        printf("inner\n");
-        for (int j = 0; j<(g[i]->edge_num-g[i]->edge_outer_num); ++j)
-    	{
-    		printf("%d GPU: %d %d\n",i,g[i]->edge_inner_src[j],g[i]->edge_inner_dst[j] );
-    	}
-    }
-	printf("Graph_cpu\n");
-	for (int i = 0; i <dsize->edge_num; ++i)
-	{
-		printf("%d %d\n",origin_g->edge_src[i],origin_g->edge_dst[i]);
-	}
-	*/
-
     int vertex_num=dsize->vertex_num;
-    int first_vertex=1;
-    value_cpu=(int *)malloc(sizeof(int)*vertex_num);
-    value_gpu=(int *)malloc(sizeof(int)*vertex_num);
-    bfs_cpu(origin_g,value_cpu,dsize,first_vertex);
-    print_bfs_values(value_cpu,vertex_num);
-    free(origin_g);
+    int first_vertex=3;
+
+	//origin_g=read_graph_edges_again(filename_e,edge_num);
+    //edgelsit_to_csr(origin_g,dsize->vertex_num,edge_num);
+	//value_cpu=(int *)malloc(sizeof(int)*(vertex_num+1));
+    //bfs_cpu(origin_g,value_cpu,dsize,first_vertex);
+    //print_bfs_values(value_cpu,vertex_num+1);
+    //free(origin_g);
     
+    value_gpu=(int *)malloc(sizeof(int)*(vertex_num+1));
     bfs_gpu(g,gpu_num,value_gpu,dsize,first_vertex,copy_num,position_id);
-    print_bfs_values(value_gpu,vertex_num);
-    checkResult(value_cpu,value_gpu,vertex_num);
-    
+    print_bfs_values(value_gpu,vertex_num+1);
+    free(g);
+	
+//	checkResult(value_cpu,value_gpu,vertex_num+1);
+
+	//free(value_cpu);
+	free(value_gpu);
 	return 0; 
 }
 
