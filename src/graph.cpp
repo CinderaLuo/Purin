@@ -376,7 +376,8 @@ void edgelsit_to_csr( Graph_cpu *g, int vertex_num, int edge_num)
    int count=0;
    int begin_id=0;
    g->vertex_begin[begin_id++]=index;
-   while(vertex_id<=vertex_num)
+   printf("start\n");
+   while(vertex_id<vertex_num)
    {
    	 for (int i = 0; i < edge_num; ++i)
    	 {
@@ -389,7 +390,7 @@ void edgelsit_to_csr( Graph_cpu *g, int vertex_num, int edge_num)
    	 g->vertex_begin[begin_id++]=index;
    	 vertex_id++;
    }
-
+  printf("finish edgelist\n");
  #ifdef PRINT_CHECK_G
    printf("edge_src\n");
    for (int i = 0; i < edge_num; ++i)

@@ -65,29 +65,36 @@ int main(int argc, char *argv[])
 	copy_num=(int *)malloc(sizeof(int)*(dsize->vertex_num));
 	memset(copy_num,0,sizeof(int)*(dsize->vertex_num));
 
+    //read two input file to store as edgelist, seperate outer and inner vertex
 	g=Initiate_graph (gpu_num,dsize);
 	read_graph_vertices(filename_v,g,gpu_num,copy_num);
 	read_graph_edges(filename_e,g,gpu_num,copy_num);
-    //read_graph_size(g,dsize,gpu_num);
+  
      
     int edge_num=dsize->edge_num;
     int vertex_num=dsize->vertex_num;
     int first_vertex=3;
 
-	//origin_g=read_graph_edges_again(filename_e,edge_num);
-    //edgelsit_to_csr(origin_g,dsize->vertex_num,edge_num);
-	//value_cpu=(int *)malloc(sizeof(int)*(vertex_num+1));
-    //bfs_cpu(origin_g,value_cpu,dsize,first_vertex);
-    //print_bfs_values(value_cpu,vertex_num+1);
-    //free(origin_g);
+    //
+   /*
+	origin_g=read_graph_edges_again(filename_e,edge_num);
+    edgelsit_to_csr(origin_g,dsize->vertex_num,edge_num);
+
+	printf("bfs_cpu\n");
+	value_cpu=(int *)malloc(sizeof(int)*(vertex_num+1));
+	bfs_cpu(origin_g,value_cpu,dsize,first_vertex);
+    print_bfs_values(value_cpu,vertex_num+1);
+    free(origin_g);
     
+    */
+
     value_gpu=(int *)malloc(sizeof(int)*(vertex_num+1));
     bfs_gpu(g,gpu_num,value_gpu,dsize,first_vertex,copy_num,position_id);
     print_bfs_values(value_gpu,vertex_num+1);
     free(g);
 	
-//	checkResult(value_cpu,value_gpu,vertex_num+1);
-
+    //checkResult(value_cpu,value_gpu,vertex_num+1);
+ 
 	//free(value_cpu);
 	free(value_gpu);
 	return 0; 

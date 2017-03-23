@@ -1,5 +1,7 @@
-//#define PRINT_CHECK
+//Todo:time record on GPU
 
+
+//#define PRINT_CHECK
 //header file of memset()
 #include<string.h>
 #include<malloc.h>
@@ -11,6 +13,7 @@
 //#include "algorithm.h"
 #include "cuda_runtime.h"
 
+// The number of partitioning the outer chunk must be greater or equal to 1
 #define ITERATE_IN_OUTER 1
 
 #ifdef __CUDA_RUNTIME_H__
@@ -116,7 +119,7 @@ static __global__ void  bfs_kernel_outer(
 	int curStep = step;
 	int nextStep = curStep + 1;
 	// proceeding loop
-	for (int i = index; i < edge_num; i +=n) {
+	for (int i = index; i < edge_num; i +=n) {		
 		if (values[edge_src[i]] == curStep && values[edge_dest[i]] == 0) {
 			values[edge_dest[i]] = nextStep;
 		}
@@ -136,75 +139,86 @@ static __global__ void bfs_kernel_inner(
 	int index = threadIdx.x + blockIdx.x * blockDim.x;
 	// continue flag for each thread
 	int flag = 0;
+	int curStep = step;
+	int nextStep = curStep + 1;
 
-	// proceeding loop
 	for (int i = index; i < edge_num; i +=n) {		
-		if(values[edge_src[i]]==step && values[edge_dest[i]]==0)	
+		if(values[edge_src[i]]==curStep && values[edge_dest[i]]==0)	
 		{
-			values[edge_dest[i]]=step+1;
-			flag = 1;	
+			values[edge_dest[i]]=nextStep;
+			flag = 1;
 		}	
 	}
 	// update flag
 	if (flag == 1) *continue_flag = 1;
 }
-
-int no_zero_num(int ** a, int gpu_num, int vertex_id, int step)
+static __global__ void kernel_make_bitmap(
+		int const vertex_num,
+		int const * const values,
+		int * const bitmap,
+		int const targe)
 {
-	int count=0;
-	for (int i = 0; i < gpu_num; ++i)
+	int const n=blockDim.x*gridDim.x;
+	int const tid=threadIdx.x+blockDim.x*blockIdx.x;
+	for (int i = tid; i < vertex_num; i+=n)
 	{
-		if (a[i][vertex_id]==step+1)
-		{
-			count++;
-		}
+		int const v=__ballot(values[i]==targe);
+		bitmap[i>>5]=v;
 	}
-	return count;
 }
 
-static omp_lock_t lock;
-
-void bfs_gather_cpu(
-		Graph **g,
-		DataSize *dsize,
-		int * copy_num,
-		int **h_value,
-		int *value_gpu,
-		int gpu_num,
-		int step,
-		int &flag )
+static __global__ void  kernel_extract_bitmap(  
+		int const vertex_num,
+		int const * const bitmap,
+		int * const values,
+		int const targe)
 {
-	int vertex_num=dsize->vertex_num;
-	int nozeronum;
-	flag=0;
-	//omp_init_lock(&lock);
-	//#pragma omp parallel for
-	for (int i = 0; i < vertex_num+1; ++i)
+	int const n=blockDim.x+gridDim.x;
+	int const tid=threadIdx.x+blockIdx.x*blockDim.x;
+	int const mask=1<<(tid & 31);
+	for (int i = tid; i < vertex_num; i=i+n)
 	{
-		// #pragma omp parallel for 
+		if(bitmap[i>>5]&mask) values[i]=targe;
+	}
+}
+
+
+void merge_bitmap_on_cpu(
+		int const bitmap_len,
+		int const gpu_num,
+		int * const *  bitmap,
+		int * const  buffer)
+{
+#pragma omp parallel for schedule(static)
+	for (int i = 0; i < bitmap_len; ++i)
+	{
+		int t=0;
 		for (int j = 0; j < gpu_num; ++j)
 		{
-			if (h_value[j][i]==step+1)
-			{
-				//omp_set_lock(&lock);
-				value_gpu[i]=step+1;
-				flag=1;
-				//omp_unset_lock(&lock);
-			}
+			t=t| bitmap[j][i];
 		}
-	}
-	
-#pragma omp parallel for
-	for (int i = 0; i < gpu_num; ++i)
-	{
-#pragma omp parallel for
-		for (int j = 0; j < vertex_num+1; ++j)
-		{
-			h_value[i][j]=value_gpu[j];
-		}
+		buffer[i]=t;
 	}
 }
 
+void Gather_result(
+		Graph * const * const g,
+		int gpu_num,
+		int * const * const h_value,
+		int * const value_gpu)
+{
+#pragma omp parallel for schedule(static)
+	for (int i = 0; i < gpu_num; ++i)
+	{
+		int *edge_dest=g[i]->edge_inner_dst;
+		int size=g[i]->edge_num-g[i]->edge_outer_num;
+		for (int j = 0; j <size ; ++j)
+		{
+			int v_id=edge_dest[j];
+			value_gpu[v_id]=h_value[i][j];
+		}
+	}
+}
 /* BFS algorithm on GPU */
 void bfs_gpu(Graph **g,int gpu_num,int *value_gpu,DataSize *dsize, int first_vertex, int *copy_num, int **position_id)
 {
@@ -213,6 +227,7 @@ void bfs_gpu(Graph **g,int gpu_num,int *value_gpu,DataSize *dsize, int first_ver
 	/* TODO : edgelsit store twices */
 	/* Inite value*/
 	value_gpu[first_vertex]=1;
+	// TODO : can be deleted
 	int **h_value=(int **)malloc(sizeof(int *)* gpu_num);
 	int **h_flag=(int **)malloc(sizeof(int *)*gpu_num);
 	int vertex_num=dsize->vertex_num;
@@ -222,6 +237,13 @@ void bfs_gpu(Graph **g,int gpu_num,int *value_gpu,DataSize *dsize, int first_ver
 	int **d_edge_outer_dst=(int **)malloc(sizeof(int *)*gpu_num);
 	int **d_value=(int **)malloc(sizeof(int *)*gpu_num);
 	int **d_flag=(int **)malloc(sizeof(int *)*gpu_num);
+
+	//add
+	int  bitmap_len=(vertex_num+sizeof(int)*8-1)/(sizeof(int)*8);
+	int  **h_bitmap=(int **)malloc(sizeof(int *)*gpu_num); 
+	int  **d_bitmap=(int **)malloc(sizeof(int *)*gpu_num); 
+	int *buff_bitmap=(int *)malloc(sizeof(int)*bitmap_len);
+
 
 	/* determine the size of outer vertex in one process*/
 	int tmp_per_size = min_num_outer_edge(g,gpu_num);
@@ -234,6 +256,7 @@ void bfs_gpu(Graph **g,int gpu_num,int *value_gpu,DataSize *dsize, int first_ver
 	int flag=0;
 	int step=1;
 	int inner_edge_num=0;
+
 
 	/* Malloc stream*/
 	cudaStream_t **stream;
@@ -249,6 +272,7 @@ void bfs_gpu(Graph **g,int gpu_num,int *value_gpu,DataSize *dsize, int first_ver
 	stop_asyn=(cudaEvent_t *)malloc(gpu_num*sizeof(cudaEvent_t));
 	start=(cudaEvent_t *)malloc(gpu_num*sizeof(cudaEvent_t));
 	stop=(cudaEvent_t *)malloc(gpu_num*sizeof(cudaEvent_t));
+
 
 	for (int i = 0; i < gpu_num; ++i)
 	{
@@ -269,8 +293,84 @@ void bfs_gpu(Graph **g,int gpu_num,int *value_gpu,DataSize *dsize, int first_ver
 		{
 			HANDLE_ERROR(cudaStreamCreate(&stream[i][j]));
 		}
+	}
+
+
+	for (int i = 0; i < gpu_num; ++i)
+	{
+		h_value[i]=(int *)malloc(sizeof(int)*(vertex_num+1));
+		memset(h_value[i],0,sizeof(int)*(vertex_num+1));
+		h_value[i][first_vertex]=1;
+		h_flag[i]=(int *)malloc(sizeof(int));
+
+		//add
+		h_bitmap[i]=(int *)malloc(sizeof(int)*(bitmap_len*iterate_in_outer));
+		memset(h_bitmap[i],0,sizeof(int)*(bitmap_len*iterate_in_outer));
+	}
+
+
+	for (int i = 0; i < gpu_num; ++i)
+	{
+		cudaSetDevice(i);
+		int out_size=g[i]->edge_outer_num;
+		int inner_size=g[i]->edge_num - out_size;
+
+		HANDLE_ERROR(cudaMalloc((void **)&d_edge_outer_src[i],sizeof(int)*out_size));
+		HANDLE_ERROR(cudaMalloc((void **)&d_edge_outer_dst[i],sizeof(int)*out_size));
+		HANDLE_ERROR(cudaMalloc((void **)&d_bitmap[i],sizeof(int)*(bitmap_len*iterate_in_outer)));
+
+		if (outer_per_size!=0 && outer_per_size < out_size)
+		{
+			for (int j = 1; j < iterate_in_outer; ++j)
+			{
+				HANDLE_ERROR(cudaMemcpyAsync((void *)(d_edge_outer_src[i]+(j-1)*outer_per_size),(void *)(g[i]->edge_outer_src+(j-1)*outer_per_size),sizeof(int)*outer_per_size,cudaMemcpyHostToDevice, stream[i][j-1]));
+				HANDLE_ERROR(cudaMemcpyAsync((void *)(d_edge_outer_dst[i]+(j-1)*outer_per_size),(void *)(g[i]->edge_outer_dst+(j-1)*outer_per_size),sizeof(int)*outer_per_size,cudaMemcpyHostToDevice, stream[i][j-1]));
+				HANDLE_ERROR(cudaMemcpyAsync((void *)(d_bitmap[i]+(j-1)*bitmap_len),(void *)(h_bitmap[i]+(j-1)*bitmap_len),sizeof(int)*(bitmap_len),cudaMemcpyHostToDevice,stream[i][j-1]));
+			}
+		}
+
+		last_outer_per_size[i]=g[i]->edge_outer_num-outer_per_size * (iterate_in_outer-1);           
+		if (last_outer_per_size[i]>0 && iterate_in_outer>1 )
+		{
+			HANDLE_ERROR(cudaMemcpyAsync((void *)(d_edge_outer_src[i]+(iterate_in_outer-1)*outer_per_size),(void *)(g[i]->edge_outer_src+(iterate_in_outer-1)*outer_per_size),sizeof(int)*last_outer_per_size[i],cudaMemcpyHostToDevice, stream[i][iterate_in_outer-1]));
+			HANDLE_ERROR(cudaMemcpyAsync((void *)(d_edge_outer_dst[i]+(iterate_in_outer-1)*outer_per_size),(void *)(g[i]->edge_outer_dst+(iterate_in_outer-1)*outer_per_size),sizeof(int)*last_outer_per_size[i],cudaMemcpyHostToDevice, stream[i][iterate_in_outer-1]));
+			HANDLE_ERROR(cudaMemcpyAsync((void *)(d_bitmap[i]+(iterate_in_outer-1)*bitmap_len),(void *)(h_bitmap[i]+(iterate_in_outer-1)*bitmap_len),sizeof(int)*bitmap_len,cudaMemcpyHostToDevice,stream[i][iterate_in_outer-1]));
+		}
+
+
+		HANDLE_ERROR(cudaMalloc((void **)&d_edge_inner_src[i],sizeof(int)*inner_size));
+		HANDLE_ERROR(cudaMalloc((void **)&d_edge_inner_dst[i],sizeof(int)*inner_size));
+		HANDLE_ERROR(cudaMemcpyAsync((void *)d_edge_inner_src[i],(void *)g[i]->edge_inner_src,sizeof(int)*inner_size,cudaMemcpyHostToDevice,stream[i][iterate_in_outer]));
+		HANDLE_ERROR(cudaMemcpyAsync((void *)d_edge_inner_dst[i],(void *)g[i]->edge_inner_dst,sizeof(int)*inner_size,cudaMemcpyHostToDevice,stream[i][iterate_in_outer]));
+
+		HANDLE_ERROR(cudaMalloc((void **)&d_value[i],sizeof(int)*(vertex_num+1)));
+		HANDLE_ERROR(cudaMemcpyAsync((void *)d_value[i],(void *)h_value[i],sizeof(int)*(vertex_num+1),cudaMemcpyHostToDevice,stream[i][0]));
+
+		HANDLE_ERROR(cudaMalloc((void **)&d_flag[i],sizeof(int)));
+
+
+	}
+	printf("Malloc is finished!\n");
+	/* Time Inite*/
+	float *outer_compute_time,*inner_compute_time,*compute_time,*total_compute_time,*extract_bitmap_time;
+	float gather_time=0.0;
+	float cpu_gather_time=0.0;
+	float total_time=0.0;
+	float record_time=0.0;
+	outer_compute_time=(float *)malloc(sizeof(float)*gpu_num);
+	inner_compute_time=(float *)malloc(sizeof(float)*gpu_num);
+	compute_time=(float *)malloc(sizeof(float)*gpu_num);
+	total_compute_time=(float *)malloc(sizeof(float)*gpu_num);
+	extract_bitmap_time=(float *)malloc(sizeof(float)*gpu_num);
+
+	memset(outer_compute_time,0,sizeof(float)*gpu_num);
+	memset(inner_compute_time,0,sizeof(float)*gpu_num);
+	memset(compute_time,0,sizeof(float)*gpu_num);
 
 #ifdef PRINT_CHECK
+	for (int i = 0; i < gpu_num; ++i)
+	{
+
 		HANDLE_ERROR(cudaMemcpy(h_value[i],d_value[i],sizeof(int)*(vertex_num+1),cudaMemcpyDeviceToHost));
 		printf("Before while --> check value\n");
 		printf("value:\n");
@@ -289,94 +389,38 @@ void bfs_gpu(Graph **g,int gpu_num,int *value_gpu,DataSize *dsize, int first_ver
 			printf("( %d, %d )\t",g[i]->edge_inner_src[j],g[i]->edge_inner_dst[j]);
 		}
 		printf("\n");
+	}
 #endif
-	}
-
-
-	for (int i = 0; i < gpu_num; ++i)
-	{
-		h_value[i]=(int *)malloc(sizeof(int)*(vertex_num+1));
-		memset(h_value[i],0,sizeof(int)*(vertex_num+1));
-		h_value[i][first_vertex]=1;
-		h_flag[i]=(int *)malloc(sizeof(int));
-	}
-
-	for (int i = 0; i < gpu_num; ++i)
-	{
-		cudaSetDevice(i);
-		int out_size=g[i]->edge_outer_num;
-		int inner_size=g[i]->edge_num - out_size;
-
-		HANDLE_ERROR(cudaMalloc((void **)&d_edge_outer_src[i],sizeof(int)*out_size));
-		HANDLE_ERROR(cudaMalloc((void **)&d_edge_outer_dst[i],sizeof(int)*out_size));
-		if (outer_per_size!=0 && outer_per_size < out_size)
-		{
-			for (int j = 1; j < iterate_in_outer; ++j)
-			{
-				HANDLE_ERROR(cudaMemcpyAsync((void *)(d_edge_outer_src[i]+(j-1)*outer_per_size),(void *)(g[i]->edge_outer_src+(j-1)*outer_per_size),sizeof(int)*outer_per_size,cudaMemcpyHostToDevice, stream[i][j-1]));
-				HANDLE_ERROR(cudaMemcpyAsync((void *)(d_edge_outer_dst[i]+(j-1)*outer_per_size),(void *)(g[i]->edge_outer_dst+(j-1)*outer_per_size),sizeof(int)*outer_per_size,cudaMemcpyHostToDevice, stream[i][j-1]));
-			}
-		}
-
-		last_outer_per_size[i]=g[i]->edge_outer_num-outer_per_size * (iterate_in_outer-1);           
-		if (last_outer_per_size[i]>0 && iterate_in_outer>1 )
-		{
-			HANDLE_ERROR(cudaMemcpyAsync((void *)(d_edge_outer_src[i]+(iterate_in_outer-1)*outer_per_size),(void *)(g[i]->edge_outer_src+(iterate_in_outer-1)*outer_per_size),sizeof(int)*last_outer_per_size[i],cudaMemcpyHostToDevice, stream[i][iterate_in_outer-1]));
-			HANDLE_ERROR(cudaMemcpyAsync((void *)(d_edge_outer_dst[i]+(iterate_in_outer-1)*outer_per_size),(void *)(g[i]->edge_outer_dst+(iterate_in_outer-1)*outer_per_size),sizeof(int)*last_outer_per_size[i],cudaMemcpyHostToDevice, stream[i][iterate_in_outer-1]));
-		}
-
-		HANDLE_ERROR(cudaMalloc((void **)&d_edge_inner_src[i],sizeof(int)*inner_size));
-		HANDLE_ERROR(cudaMalloc((void **)&d_edge_inner_dst[i],sizeof(int)*inner_size));
-		HANDLE_ERROR(cudaMemcpyAsync((void *)d_edge_inner_src[i],(void *)g[i]->edge_inner_src,sizeof(int)*inner_size,cudaMemcpyHostToDevice,stream[i][iterate_in_outer]));
-		HANDLE_ERROR(cudaMemcpyAsync((void *)d_edge_inner_dst[i],(void *)g[i]->edge_inner_dst,sizeof(int)*inner_size,cudaMemcpyHostToDevice,stream[i][iterate_in_outer]));
-
-		HANDLE_ERROR(cudaMalloc((void **)&d_value[i],sizeof(int)*(vertex_num+1)));
-		HANDLE_ERROR(cudaMemcpyAsync((void *)d_value[i],(void *)h_value[i],sizeof(int)*(vertex_num+1),cudaMemcpyHostToDevice, stream[i][0]));
-		HANDLE_ERROR(cudaMalloc((void **)&d_flag[i],sizeof(int)));
-	}
-
-	printf("Malloc is finished!\n");
-	/* Time Inite*/
-	float *outer_compute_time,*inner_compute_time,*compute_time,*total_compute_time,*communicate_time;
-	float gather_time=0.0;
-	float cpu_gather_time=0.0;
-	float total_time=0.0;
-	float record_time=0.0;
-	outer_compute_time=(float *)malloc(sizeof(float)*gpu_num);
-	inner_compute_time=(float *)malloc(sizeof(float)*gpu_num);
-	compute_time=(float *)malloc(sizeof(float)*gpu_num);
-	total_compute_time=(float *)malloc(sizeof(float)*gpu_num);
-	communicate_time=(float *)malloc(sizeof(float)*gpu_num);
-
-	memset(outer_compute_time,0,sizeof(float)*gpu_num);
-	memset(inner_compute_time,0,sizeof(float)*gpu_num);
-	memset(compute_time,0,sizeof(float)*gpu_num);
 
 	/* one iteration */
+
 	do
 	{
 		flag=0;
-		//HANDLE_ERROR(cudaMemset(d_flag,0,sizeof(int)*gpu_num));
 		for (int i = 0; i <gpu_num; ++i)
 		{		
 			memset(h_flag[i],0,sizeof(int));
 			cudaSetDevice(i);
 			HANDLE_ERROR(cudaMemcpyAsync(d_flag[i],h_flag[i],sizeof(int),cudaMemcpyHostToDevice,stream[i][0]));
-			// outer
-			//cudaMemcpy(d_value[i],h_value[i],sizeof(int)*(g[i]->vertex_num+1),cudaMemcpyHostToDevice);
-			HANDLE_ERROR(cudaEventRecord(start[i],0));
-			HANDLE_ERROR(cudaEventRecord(start_outer[i],stream[i][0] )); 
+			HANDLE_ERROR(cudaEventRecord(start[i],stream[i][0]));
+            HANDLE_ERROR(cudaEventRecord(start_outer[i], stream[i][0]));
+			//kernel of outer edgelist
 			if (outer_per_size!=0 && outer_per_size < g[i]->edge_outer_num)
 			{
 				for (int j = 1; j < iterate_in_outer; ++j)
-				{
-					//printf("%d outer_per_size %d outer_num %d\n",j,outer_per_size,g[i]->edge_outer_num);
+				{				
 					bfs_kernel_outer<<<208,128,0,stream[i][j-1]>>>(
 							outer_per_size,
 							d_edge_outer_src[i]+(j-1)*outer_per_size,
 							d_edge_outer_dst[i]+(j-1)*outer_per_size,
 							d_value[i],
 							step);
+					kernel_make_bitmap<<<208,128,0,stream[i][j-1]>>>(
+							vertex_num,
+							d_value[i],
+							d_bitmap[i]+(j-1)*bitmap_len,
+							step+1);
+					HANDLE_ERROR(cudaMemcpyAsync((void *)(h_bitmap[i]+(j-1)*bitmap_len),(void *)(d_bitmap[i]+(j-1)*bitmap_len),sizeof(int)*(bitmap_len),cudaMemcpyDeviceToHost,stream[i][j-1]));
 				}
 			}
 			last_outer_per_size[i]=g[i]->edge_outer_num-outer_per_size * (iterate_in_outer-1);           
@@ -389,57 +433,88 @@ void bfs_gpu(Graph **g,int gpu_num,int *value_gpu,DataSize *dsize, int first_ver
 						d_edge_outer_dst[i]+(iterate_in_outer-1)*outer_per_size,
 						d_value[i],
 						step);
-				//printf("iterate_in_outer  %d, last_outer_per_size %d, g[i]->edge_src %d, outer_per_size  %d\n", iterate_in_outer, last_outer_per_size[i],g[i]->edge_num, outer_per_size);
+				kernel_make_bitmap<<<208,128,0,stream[i][iterate_in_outer-1]>>>(
+						vertex_num,
+						d_value[i],
+						d_bitmap[i]+(iterate_in_outer-1)*bitmap_len,
+						step+1
+						);
+				HANDLE_ERROR(cudaMemcpyAsync((void *)(h_bitmap[i]+(iterate_in_outer-1)*bitmap_len),(void *)(d_bitmap[i]+(iterate_in_outer-1)*bitmap_len),sizeof(int)*(bitmap_len),cudaMemcpyDeviceToHost,stream[i][iterate_in_outer-1]));
 			}
-			HANDLE_ERROR(cudaEventRecord(stop_outer[i], stream[i][0]));
-
-
-			cudaEventRecord(start_inner[i], stream[i][iterate_in_outer]);
-			//inner+flag
-			inner_edge_num=g[i]->edge_num-g[i]->edge_outer_num;
-			bfs_kernel_inner<<<208,128,0,stream[i][iterate_in_outer]>>>(
-					inner_edge_num,
-					d_edge_inner_src[i],
-					d_edge_inner_dst[i],
-					d_value[i],
-					step,
-					d_flag[i]);
-			cudaEventRecord(stop_inner[i], stream[i][iterate_in_outer]);
-
-
-			cudaEventRecord(start_asyn[i],stream[i][0]);
-			HANDLE_ERROR(cudaMemcpyAsync(h_value[i],d_value[i],sizeof(int)*(vertex_num+1),cudaMemcpyDeviceToHost,stream[i][0]));
-			HANDLE_ERROR(cudaMemcpyAsync(h_flag[i], d_flag[i],sizeof(int),cudaMemcpyDeviceToHost,stream[i][0]));
-			cudaEventRecord(stop_asyn[i],stream[i][0]);
-
-
-			HANDLE_ERROR(cudaEventRecord(stop[i],0));
-
-		}
-
-
-		timer_start();
-		bfs_gather_cpu(g,dsize,copy_num,h_value,value_gpu,gpu_num,step,flag);
-		record_time=timer_stop();
-		cpu_gather_time+=record_time;
-		gather_time+=record_time;
-
-		cudaEventRecord(tmp_start, 0);
-		for (int i = 0; i < gpu_num; ++i)
-		{
-			HANDLE_ERROR(cudaMemcpyAsync(d_value[i], h_value[i], sizeof(int)*(vertex_num+1),cudaMemcpyHostToDevice,stream[i][0]));
-		}
+			HANDLE_ERROR(cudaEventRecord(stop_outer[i], stream[i][iterate_in_outer-1]));
 
 #ifdef PRINT_CHECK
-		printf("After bfs_gather_cpu\n%d\n\n",flag);
+			printf("The value after bfs_outer_kernel\n");
+			HANDLE_ERROR(cudaMemcpy(h_value[i],d_value[i],sizeof(int)*(vertex_num+1),cudaMemcpyDeviceToHost));
+			HANDLE_ERROR(cudaMemcpy(h_flag[i], d_flag[i],sizeof(int),cudaMemcpyDeviceToHost));
+			for (int j = 0; j < vertex_num+1 && j<10; ++j)
+			{
+				printf("%d\t", h_value[i][j]);
+			}
+			printf("\n");
 #endif
-		cudaEventRecord(tmp_stop, 0);
 
-		cudaDeviceSynchronize();
+			HANDLE_ERROR(cudaEventRecord(start_inner[i], stream[i][iterate_in_outer]));
+			//inner+flag
+			inner_edge_num=g[i]->edge_num-g[i]->edge_outer_num;
+			if (inner_edge_num>0)
+			{
+				bfs_kernel_inner<<<208,128,0,stream[i][iterate_in_outer]>>>(
+						inner_edge_num,
+						d_edge_inner_src[i],
+						d_edge_inner_dst[i],
+						d_value[i],
+						step,
+						d_flag[i]);			
+				HANDLE_ERROR(cudaMemcpyAsync(h_flag[i], d_flag[i],sizeof(int),cudaMemcpyDeviceToHost,stream[i][iterate_in_outer]));	    
+			}
+			HANDLE_ERROR(cudaEventRecord(stop_inner[i],stream[i][iterate_in_outer]));
 
-		//cudaEventSynchronize(tmp_stop);
-		cudaEventElapsedTime(&record_time, tmp_start, tmp_stop);
+
+#ifdef PRINT_CHECK
+			printf("The value after bfs_kernel\n");
+			HANDLE_ERROR(cudaMemcpy(h_value[i],d_value[i],sizeof(int)*(vertex_num+1),cudaMemcpyDeviceToHost));
+			HANDLE_ERROR(cudaMemcpy(h_flag[i], d_flag[i],sizeof(int),cudaMemcpyDeviceToHost));
+			for (int j = 0; j < vertex_num+1 && j<10; ++j)
+			{
+				printf("%d\t", h_value[i][j]);
+			}
+			printf("%d\n",h_flag[i][0]);
+			printf("\n");
+#endif
+
+		}
+
+
+		//merge bitmap on gpu
+		double t1=omp_get_wtime();
+		merge_bitmap_on_cpu(bitmap_len, gpu_num, h_bitmap, buff_bitmap);
+		double t2=omp_get_wtime();
+		record_time=(t2-t1)*1000;
 		gather_time+=record_time;
+
+
+		for (int i = 0; i < gpu_num; ++i)
+		{
+			cudaSetDevice(i);
+			//extract bitmap to the value
+			HANDLE_ERROR(cudaEventRecord(start_asyn[i], stream[i][0]));
+			for (int j = 0; j <iterate_in_outer ; ++j)
+			{
+				HANDLE_ERROR(cudaMemcpyAsync(d_bitmap[i]+j*bitmap_len, buff_bitmap,sizeof(int)*bitmap_len,cudaMemcpyHostToDevice,stream[i][j]));
+			    int threadsize=108;
+				int blocksize=208;
+				kernel_extract_bitmap<<<blocksize,threadsize,0,stream[i][j]>>>
+					(  
+					 vertex_num,
+					 d_bitmap[i]+j*bitmap_len,
+					 d_value[i],
+					 step+1
+					);
+			}
+			HANDLE_ERROR(cudaEventRecord(stop_asyn[i], stream[i][iterate_in_outer-1]));
+			HANDLE_ERROR(cudaEventRecord(stop[i],stream[i][iterate_in_outer-1]));
+		}
 
 		for (int i = 0; i < gpu_num; ++i)
 		{
@@ -447,50 +522,59 @@ void bfs_gpu(Graph **g,int gpu_num,int *value_gpu,DataSize *dsize, int first_ver
 		}
 		step++;
 
+		cudaDeviceSynchronize();
+
 		//collect time  different stream
 		for (int i = 0; i < gpu_num; ++i)
 		{
+			cudaSetDevice(i);
 			//HANDLE_ERROR(cudaEventSynchronize(stop_outer[i]));
 			HANDLE_ERROR(cudaEventElapsedTime(&record_time, start_outer[i], stop_outer[i]));
 			outer_compute_time[i]+=record_time;
 			HANDLE_ERROR(cudaEventElapsedTime(&record_time, start_inner[i], stop_inner[i]));  
 			inner_compute_time[i]+=record_time;
-            HANDLE_ERROR(cudaEventElapsedTime(&record_time, start_asyn[i], stop_asyn[i]));  
-			communicate_time[i]+=record_time;
+			HANDLE_ERROR(cudaEventElapsedTime(&record_time, start_asyn[i], stop_asyn[i]));  
+			extract_bitmap_time[i]+=record_time;
 			HANDLE_ERROR(cudaEventElapsedTime(&record_time, start[i], stop[i]));
 			total_compute_time[i]+=record_time;
-		}
-
-
+		}		
 	}while(flag);
 
+
+    printf("done while\n");
+	//Todo to get the true value of inner vertice and outer vertice
+	for (int i = 0; i < gpu_num; ++i)
+	{
+		cudaSetDevice(i);
+		cudaMemcpyAsync((void *)h_value[i],(void *)d_value[i],sizeof(int)*(vertex_num+1),cudaMemcpyDeviceToHost,stream[i][0]);
+	}
+	Gather_result(g,gpu_num,h_value,value_gpu);
+
+	printf("Time print\n");
 	//collect the information of time 
 	float total_time_n=0.0;
 	for (int i = 0; i < gpu_num; ++i)
 	{
-		compute_time[i]=outer_compute_time[i]+inner_compute_time[i];
-		if (total_time_n<compute_time[i])
-		{
-			//max
-			total_time_n=compute_time[i];
-		}
+         if(total_time_n<total_compute_time[i])
+         	total_time_n=total_compute_time[i];
 	}
-	total_time=total_time_n+gather_time;
-	printf("Total time of bfs_cpu is %.3fms\n",total_time);
+	total_time=total_time_n>gather_time?total_time_n:gather_time;
+
+	printf("Total time of bfs_gpu is %.3f ms\n",total_time);
+	printf("-------------------------------------------------------\n");
 	printf("Detail:\n");
 	printf("\n");
 	for (int i = 0; i < gpu_num; ++i)
 	{
 		printf("GPU %d\n",i);
-		printf("Outer_Compute_Time:  %.3fms\n", outer_compute_time[i]);
-		printf("Inner_Compute_Time:  %.3fms\n", inner_compute_time[i]);
-		printf("Compute_Time:        %.3fms\n", compute_time[i]);
-		printf("Communicate_Time     %.3fms\n", communicate_time[i]);
-		printf("Total Compute_Time   %.3fms\n", total_compute_time[i]);
+		printf("Outer_Compute_Time(include pre-stage):  %.3f ms\n", outer_compute_time[i]);
+		printf("Inner_Compute_Time:                     %.3f ms\n", inner_compute_time[i]);
+		printf("Total Compute_Time                      %.3f ms\n", total_compute_time[i]);
+		printf("Extract_Bitmap_Time                     %.3f ms\n", extract_bitmap_time);
 	}
-	printf("\n");
-	printf("Gather_Time:          %.3fms\n", gather_time);
-	printf("CPU_Gather_Time:      %.3fms\n", cpu_gather_time);
+	printf("CPU \n");
+	printf("CPU_Gather_Time:                            %.3f ms\n", gather_time);
+	printf("--------------------------------------------------------\n");
 
 	//clean
 
@@ -507,7 +591,8 @@ void bfs_gpu(Graph **g,int gpu_num,int *value_gpu,DataSize *dsize, int first_ver
 		HANDLE_ERROR(cudaFree(d_flag[i]));
 
 		HANDLE_ERROR(cudaDeviceReset());
-		free(h_value[i]);
+		//error 
+		//free(h_value[i]);
 		free(h_flag[i]);
 		free(stream[i]);
 	}
@@ -515,6 +600,5 @@ void bfs_gpu(Graph **g,int gpu_num,int *value_gpu,DataSize *dsize, int first_ver
 	free(outer_compute_time);
 	free(inner_compute_time);
 	free(compute_time);
-
 }
 

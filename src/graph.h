@@ -63,6 +63,7 @@ struct dataSize_h{
 };
 typedef struct dataSize_h  DataSize;
 
+
 /* Allocate the memory for each machine to store the graph data */ 
 /* Add: use size to record the graph data informatition */
 Graph ** Initiate_graph (int gpu_num,DataSize *size );
@@ -73,7 +74,8 @@ void read_graph_vertices( char *  filename, Graph ** g,int  gpu_num,int *copy_nu
 void read_graph_vertices_m( char *  filename, Graph ** g,int  gpu_num,int *copy_num, int *map_copy);
 
 /* Read the file from [output-name].edges which is the partition result of edge list */
-void read_graph_edges(char *  filename, Graph ** g,int gpu_num,int *copy_num);
+void read_graph_edges(char *  filename, Graph ** g, int gpu_num,int *copy_num);
+
 /* Read Graph **g to store the max_part_vertex_num and max_part_edge_num which be needed in DataSize *dsize*/
 void read_graph_size(Graph **g, DataSize *dsize, int gpu_num);
 
