@@ -5,7 +5,9 @@
 #include <stdlib.h> 
 /* The head file of strstr()*/
 #include <string.h>
+#include <ctype.h>
 #include <math.h>
+#include <omp.h>
 
 /* The function and the graph data structure is defined in the "graph.h" */
 #include "graph.h"
@@ -322,22 +324,14 @@ int min_num_outer_edge(Graph **g, int gpu_num)
 /* Do not think about preprocesing time */
 /* The following functions just are used to [algorithm]_cpu() to check the correctness. */
 
-/* In fact, read the [input].edges again. TODO: Integrate into read_graph_edges() */
-Graph_cpu * read_graph_edges_again(char * filename, int edge_num)
+/* read random egdelist store as csr
+  Note: the length in file must be equal to edge_num
+  file format:
+  1 2
+  3 4*/
+Graph_cpu * read_graph_edges_again_to_csr(char * filename, int edge_num, int vertex_num)
 {
-    Graph_cpu *g=(Graph_cpu *)malloc(sizeof(Graph_cpu));
-    g->edge_src=(int *)malloc(sizeof(int)*edge_num);
-    g->edge_dst=(int *)malloc(sizeof(int)*edge_num);
-    if(g==NULL)
-    {
-    	perror("Out of memory");
-    	exit(1);
-    }
-    char line[1024];
-    char *loc=line;
-    int edge_src,edge_dst;
-
-    FILE *f=NULL;
+	 FILE *f=NULL;
     f=fopen(filename,"r");
     if(f==NULL)
     {
@@ -345,54 +339,93 @@ Graph_cpu * read_graph_edges_again(char * filename, int edge_num)
 		perror("");
 		exit(1);       
     }
-    int index=0;
-    printf("Reading  %s again .....\n",filename);
-    while(fgets(line,1024,f)!=NULL)
+	Graph_cpu *g=(Graph_cpu *)malloc(sizeof(Graph_cpu));
+	if(g==NULL)
     {
-    	loc=line;
-    	edge_src=(int)atoi(line);
-    	loc=strstr(line,",");
-    	edge_dst=(int)atoi(loc+1);
-        g->edge_src[index]=edge_src;
-        g->edge_dst[index]=edge_dst;
-        index++;
-        if (index>edge_num)
-        {
-        	printf("Edge_num is wrong!\n");
-        	perror("");
-        	exit(1);
+    	perror("Out of memory");
+    	exit(1);
+    }
+    int *edge_src=(int *)malloc(sizeof(int)*edge_num);
+    int *edge_dest=(int *)malloc(sizeof(int)*edge_num);
+    int *vertex_begin=(int *)malloc(sizeof(int)*(vertex_num+1));
+    int *tmp_vertex=(int *)malloc(sizeof(int)*(vertex_num+1));
+    memset(tmp_vertex, 0, sizeof(int) * (vertex_num + 1));
+
+    if (g == NULL || vertex_begin == NULL || edge_dest == NULL || edge_src == NULL) {
+         perror("Out of Memory for graph");
+             /* exit program when fail */
+            fclose(f);
+              exit(1);
+   }
+    g->edge_src=edge_src;
+    g->edge_dst=edge_dest;
+    g->vertex_begin=vertex_begin;
+
+    printf("Reading  random edgelist %s again, and storing as csr format.....\n",filename);
+    
+    int last=0;
+    int counter=0;
+    int i=0;
+    char line[1024];
+    char *loc=line;
+    int vertex_id=0;
+    int src=0;
+    int dst=0;
+    /* read all the edges, each begins with character 'a' followed with three numbers */
+    last = 1; // assumed that vertex id start from 1
+    vertex_begin[0] = 0;
+     /* naive method: scan the entire file to count edge for each vertex */
+    while((vertex_id=fgetc(f))!=EOF)
+    {
+        if(isdigit(vertex_id)){
+        	ungetc(vertex_id,f);
+        	fscanf(f,"%d",&vertex_id);
+        	tmp_vertex[vertex_id]++;
+        }  
+         while ((vertex_id = fgetc(f)) != EOF && vertex_id!= '\n');   
+    }
+    /* calculate the edge index for each vertex */
+    for (int i = 1; i < vertex_num; i++) {
+        //error
+		/*
+		vertex_begin[i + 1] += vertex_begin[i];
+        vertex_begin[i] = vertex_begin[i - 1];
+		*/
+		vertex_begin[i]=vertex_begin[i-1]+tmp_vertex[i-1];
+    }
+    vertex_begin[0] = 0;
+    vertex_begin[vertex_num] = edge_num;
+
+    fseek(f, 0, SEEK_SET);
+    for (counter = 0; counter < edge_num; counter++) {
+        vertex_id=fgetc(f);
+        if (vertex_id == EOF) {
+            fprintf(stderr, "File contains only %d / %d edge information: %s\n", counter, edge_num, filename);
+            //g->edge_num = counter;
+            break;
+        } else {
+            if (isdigit(vertex_id)) {
+            /* read the edge */
+            ungetc(vertex_id, f);
+            int src, dest;
+            fscanf(f, "%d %d", &src, &dest);
+            int k = vertex_begin[src];
+            edge_src[k] = src;
+            edge_dest[k] = dest;
+            vertex_begin[src]++;
+        }
+        /* next line */
+        while ((vertex_id = fgetc(f)) != EOF && vertex_id != '\n');
         }
     }
-    return g;
-}
+    fclose(f);
+      /* reset edge indices */
+    for (int i = vertex_num - 1; i > 0; i--)
+        vertex_begin[i] = vertex_begin[i - 1];
+    vertex_begin[0] = 0;
 
-/* parse the edgelist in Graph_cpu to csr structure in Graph_cpu*/
-void edgelsit_to_csr( Graph_cpu *g, int vertex_num, int edge_num)
-{
-   g->vertex_begin=(int *)malloc(sizeof(int)*(vertex_num+1));
-   g->vertex_dst=(int *)malloc(sizeof(int)*edge_num);
-   int index=0;
-   int vertex_id=0;
-   int count=0;
-   int begin_id=0;
-   g->vertex_begin[begin_id++]=index;
-   printf("start\n");
-   while(vertex_id<vertex_num)
-   {
-   	 for (int i = 0; i < edge_num; ++i)
-   	 {
-   		if (g->edge_src[i]==vertex_id)
-   		{
-   			g->vertex_dst[count++]= g->edge_dst[i];
-   			index++;
-   		}
-   	 }
-   	 g->vertex_begin[begin_id++]=index;
-   	 vertex_id++;
-   }
-  printf("finish edgelist\n");
- #ifdef PRINT_CHECK_G
-   printf("edge_src\n");
+#ifdef PRINT_CHECK_G
+    printf("edge_src\n");
    for (int i = 0; i < edge_num; ++i)
    {
    	   printf("%d\t",g->edge_src[i]);
@@ -403,15 +436,34 @@ void edgelsit_to_csr( Graph_cpu *g, int vertex_num, int edge_num)
    	   printf("%d\t",g->edge_dst[i]);
    }
    printf("\nvertex_begin\n");
-   for (int i = 0; i < begin_id; ++i)
+   for (int i = 0; i < vertex_num; ++i)
    {
    	  printf("%d\t",g->vertex_begin[i]);
    }
-   printf("\nvertex_dst\n");
-   for (int i = 0; i < count; ++i)
-   {
-   	  printf("%d\t",g->vertex_dst[i] );
-   }
    printf("\n");
- #endif 
+  #endif 
+
+    return g;
+}
+
+//pr different
+void get_outdegree (
+    const Graph_cpu * const m,
+    int  const vertex_num,
+    int * const out_degree
+	)
+{
+  int *vertex_begin=m->vertex_begin;
+  int *edge_dest=m->edge_dst;
+  int i=0;
+  int k=0;
+  omp_set_num_threads(NUM_THREADS);	
+  #pragma omp parallel private(i)
+  {
+  	k=omp_get_thread_num(); 
+  	for (i = k; i <= vertex_num; i=i+NUM_THREADS)
+  	 {
+  	 	out_degree[i]=vertex_begin[i+1]-vertex_begin[i];
+  	 }
+  	} 
 }

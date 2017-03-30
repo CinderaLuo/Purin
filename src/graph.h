@@ -10,6 +10,7 @@ Description: This file defines the data structures for Graph
 Note: IDs for vertice start from 1
 */
 // >> vertex_num 
+#define NUM_THREADS 4
 #define MAX_POSITION  -1
 /* The graph data structure is an EDGE LIST. Each machine have one. */
 struct graph_h{
@@ -95,9 +96,8 @@ struct graph_cpu{
 };
 typedef struct graph_cpu Graph_cpu;
 /* In fact, read the [input].edges again. TODO: Integrate into read_graph_edges() */
-Graph_cpu * read_graph_edges_again(char * filename, int edge_num);
-void edgelsit_to_csr( Graph_cpu *g, int vertex_num, int edge_num);
-
+/* read random egdelist again, and store as csr */
+Graph_cpu * read_graph_edges_again_to_csr(char * filename, int edge_num, int vertex_num);
 
 /*check.cpp*/
 /* print the value of array g */
@@ -112,5 +112,8 @@ void checkResult(int *g, int *m, int num);
 void coding(Graph ** g,int gpu_num);
 /* record position of every vertex*/
 int ** recordPosition(Graph **g, int gpu_num, int vertex_num);
+
+/* record outdegree of every vertex, needing by pagerank*/
+void get_outdegree ( const Graph_cpu * const m, int  const vertex_num, int * const out_degree);
 
 #endif // #ifndef GRAPH_H_INCLUDED

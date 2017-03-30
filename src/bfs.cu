@@ -188,7 +188,8 @@ void merge_bitmap_on_cpu(
 		int const bitmap_len,
 		int const gpu_num,
 		int * const *  bitmap,
-		int * const  buffer)
+		int * const  buffer,
+		int flag)
 {
 	int i,id;
 	omp_set_num_threads(NUM_THREADS);	
@@ -197,12 +198,18 @@ void merge_bitmap_on_cpu(
 		id=omp_get_thread_num(); 
 		for (i = id; i < bitmap_len; i=i+NUM_THREADS)
 		{
+			buffer[i]=0;
 			int t=0;
 			for (int j = 0; j < gpu_num; ++j)
 			{
 				t=t| bitmap[j][i];
+				if(t) 
+				{
+					buffer[i]=t;
+					flag=1;
+					break;
+				}
 			}
-			buffer[i]=t;
 		}
 
 	}
@@ -214,12 +221,15 @@ void Gather_result(
 		int * const * const h_value,
 		int * const value_gpu)
 {
-#pragma omp parallel for schedule(static)
+	omp_set_num_threads(NUM_THREADS);
+	int j,id;	
+#pragma omp parallel private(j)
 	for (int i = 0; i < gpu_num; ++i)
 	{
 		int *edge_dest=g[i]->edge_inner_dst;
 		int size=g[i]->edge_num-g[i]->edge_outer_num;
-		for (int j = 0; j <size ; ++j)
+		id=omp_get_thread_num(); 
+		for (j = id; j <size ; j=j+NUM_THREADS)
 		{
 			int v_id=edge_dest[j];
 			value_gpu[v_id]=h_value[i][j];
@@ -500,7 +510,7 @@ void bfs_gpu(Graph **g,int gpu_num,int *value_gpu,DataSize *dsize, int first_ver
 
 		//merge bitmap on gpu
 		double t1=omp_get_wtime();
-		merge_bitmap_on_cpu(bitmap_len, gpu_num, h_bitmap, buff_bitmap);
+		merge_bitmap_on_cpu(bitmap_len, gpu_num, h_bitmap, buff_bitmap,flag);
 		double t2=omp_get_wtime();
 		record_time=(t2-t1)*1000;
 		gather_time+=record_time;

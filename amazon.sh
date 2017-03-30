@@ -11,5 +11,5 @@ make
 #amazon
 
 
-/usr/local/cuda/bin/cuda-memcheck ./exp ./example/dataset-2/amazon-2.vertices ./example/dataset-2/amazon-2.edges 735322 5158012 538554 1761624 2 
+/usr/local/cuda/bin/cuda-memcheck ./exp ./example/dataset-2/amazon-2.vertices ./example/dataset-2/amazon-2.edges 735322 5158012 538554 1761624 2 ./example/amazon.edgelist.txt  2>&1 >>file
 #/usr/local/cuda/bin/cuda-memcheck ./exp ./example/dataset-4/amazon.vertices ./example/dataset-4/amazon.edges 735322 5158012 356275 880813 4 

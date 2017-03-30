@@ -30,20 +30,25 @@ int main(int argc, char *argv[])
 	char *filename_v;
 	/* Record the path to [input].edges */
 	char *filename_e;
+	/* Record the origin file name*/
+	char *filename_origin;
 	int gpu_num;
 	/* CPU need to known all the copy number of vertices in the gpus */
 	int *copy_num;
 	int **position_id;
     int *value_cpu;
     int *value_gpu;
+    //pr different
+    float *value_gpu_pr;
+    int *out_degree;
 
-	if(argc<8)
+	if(argc<9)
 	{
 		printf("Input Command is Error!\n");
 		printf("Description:\n");
 		//printf("Input filename1 Input filename2 vertex_num  edge_num gpu_num \n ");
-		printf("Input filename1 Input filename2 vertex_num  edge_num   max_part_vertex_num  max_part_edge_num  gpu_num \n ");
-		//printf("eg: \/home\/xxling\/amazon.vertices \/hofme\/xxling\/amazon.edges 735322 5158012 356275 880813 4 \n"); 
+		printf("Input filename1 Input filename2 vertex_num  edge_num   max_part_vertex_num  max_part_edge_num  gpu_num orginfilename\n ");
+		printf("eg: \/home\/xxling\/amazon.vertices \/hofme\/xxling\/amazon.edges 735322 5158012 356275 880813 4 amazon.txt\n"); 
 		printf("Note:\n");
 		/* TODO print detailed informatition about input command. */
 		printf("....to be continued ...\n");
@@ -55,6 +60,8 @@ int main(int argc, char *argv[])
 
 	filename_v=argv[1];
 	filename_e=argv[2];
+	filename_origin=argv[8];
+
 
 	dsize->vertex_num=atoi(argv[3]);
 	dsize->edge_num=atoi(argv[4]);
@@ -77,8 +84,7 @@ int main(int argc, char *argv[])
 
     //
    /*
-	origin_g=read_graph_edges_again(filename_e,edge_num);
-    edgelsit_to_csr(origin_g,dsize->vertex_num,edge_num);
+	origin_g=read_graph_edges_again_to_csr(filename_e,edge_num,vertex_num);
 
 	printf("bfs_cpu\n");
 	value_cpu=(int *)malloc(sizeof(int)*(vertex_num+1));
@@ -91,12 +97,26 @@ int main(int argc, char *argv[])
     value_gpu=(int *)malloc(sizeof(int)*(vertex_num+1));
     bfs_gpu(g,gpu_num,value_gpu,dsize,first_vertex,copy_num,position_id);
     print_bfs_values(value_gpu,vertex_num+1);
+    //free(g);
+    free(value_gpu);
+
+	value_gpu_pr=(float *)malloc(sizeof(float)*(vertex_num+1));
+	out_degree=(int *)malloc(sizeof(int)*(vertex_num+1));
+    origin_g=read_graph_edges_again_to_csr(filename_origin,edge_num,vertex_num);
+    
+    get_outdegree(origin_g,vertex_num,out_degree);
+    free(origin_g);
+    pr_gpu(g,gpu_num,value_gpu_pr,dsize,out_degree,copy_num,position_id);
     free(g);
-	
+    free(out_degree);
+
+
     //checkResult(value_cpu,value_gpu,vertex_num+1);
  
 	//free(value_cpu);
-	free(value_gpu);
+	free(dsize);
+	free(copy_num);
+	free(position_id);
 	return 0; 
 }
 
