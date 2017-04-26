@@ -1,8 +1,0 @@
-graphfile: ./amazon-2008.txt_totem_vgp
-parts: 4
-algorithm: hdrf (lambda: 1.0)
-
-Replication factor: 1.9265
-Load relative standard deviation: 0.0
-Max partition size (edge cardinality): 880813
-Max partition size (vertex cardinality): 355366

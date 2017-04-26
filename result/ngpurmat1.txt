@@ -1,0 +1,227 @@
+rmat1..2
+Malloc Finished!
+Reading  /home/xxling/dataset/VGP-master/dist/RMAT16_1-2.vertices.....
+Reading  /home/xxling/dataset/VGP-master/dist/RMAT16_1-2.edges.....
+BFS is running on GPU...............
+Start malloc edgelist...
+Malloc is finished!
+Computing......
+Gather result on cpu....
+Time print
+Total time of bfs_gpu is 133.596 ms
+Elapsed time of bfs_gpu is 16.699 ms
+8 step
+-------------------------------------------------------
+Detail:
+
+GPU 0
+Outer_Compute_Time(include pre-stage):  124.164 ms
+Inner_Compute_Time:                     11.244 ms
+Total Compute_Time                      133.596 ms
+Extract_Bitmap_Time                     9.432 ms
+GPU 1
+Outer_Compute_Time(include pre-stage):  0.038 ms
+Inner_Compute_Time:                     11.290 ms
+Total Compute_Time                      11.290 ms
+Extract_Bitmap_Time                     8.250 ms
+CPU 
+CPU_Gather_Time:                            6.565 ms
+--------------------------------------------------------
+	Source = 3, Step = 7, Visited = 520853
+	step	visit
+	1	1
+	2	615
+	3	49545
+	4	391877
+	5	77814
+	6	993
+	7	8
+
+Reading  random edgelist /home/xxling/dataset/RMAT16_1.txt_totem again, and storing as csr format.....
+PageRank is running on GPU...............
+Start malloc edgelist...
+Malloc is finished!
+Computing......
+Gather result on cpu....
+Time print
+Total time of pr_gpu is 692.672 ms
+Elapsed time of pr_gpu is 69.267 ms
+-------------------------------------------------------
+Detail:
+
+GPU 0
+Outer_Compute_Time(include pre-stage):  343.047 ms
+Inner_Compute_Time:                     47.416 ms
+Total Compute_Time                      692.672 ms
+Extract_Bitmap_Time                     349.625 ms
+GPU 1
+Outer_Compute_Time(include pre-stage):  357.934 ms
+Inner_Compute_Time:                     51.831 ms
+Total Compute_Time                      639.931 ms
+Extract_Bitmap_Time                     281.997 ms
+CPU 
+CPU_Gather_Time:                            139.249 ms
+--------------------------------------------------------
+========= CUDA-MEMCHECK
+========= ERROR SUMMARY: 0 errors
+rmat1..3
+Malloc Finished!
+Reading  /home/xxling/dataset/VGP-master/dist/RMAT16_1-3.vertices.....
+Reading  /home/xxling/dataset/VGP-master/dist/RMAT16_1-3.edges.....
+BFS is running on GPU...............
+Start malloc edgelist...
+Malloc is finished!
+Computing......
+Gather result on cpu....
+Time print
+Total time of bfs_gpu is 99.110 ms
+Elapsed time of bfs_gpu is 12.389 ms
+8 step
+-------------------------------------------------------
+Detail:
+
+GPU 0
+Outer_Compute_Time(include pre-stage):  89.715 ms
+Inner_Compute_Time:                     3.421 ms
+Total Compute_Time                      99.110 ms
+Extract_Bitmap_Time                     9.395 ms
+GPU 1
+Outer_Compute_Time(include pre-stage):  88.118 ms
+Inner_Compute_Time:                     3.359 ms
+Total Compute_Time                      96.789 ms
+Extract_Bitmap_Time                     8.671 ms
+GPU 2
+Outer_Compute_Time(include pre-stage):  0.043 ms
+Inner_Compute_Time:                     3.703 ms
+Total Compute_Time                      8.206 ms
+Extract_Bitmap_Time                     8.164 ms
+CPU 
+CPU_Gather_Time:                            7.878 ms
+--------------------------------------------------------
+	Source = 3, Step = 7, Visited = 522332
+	step	visit
+	1	1
+	2	858
+	3	80955
+	4	406190
+	5	34065
+	6	262
+	7	1
+
+Reading  random edgelist /home/xxling/dataset/RMAT16_1.txt_totem again, and storing as csr format.....
+PageRank is running on GPU...............
+Start malloc edgelist...
+Malloc is finished!
+Computing......
+Gather result on cpu....
+Time print
+Total time of pr_gpu is 488.193 ms
+Elapsed time of pr_gpu is 48.819 ms
+-------------------------------------------------------
+Detail:
+
+GPU 0
+Outer_Compute_Time(include pre-stage):  241.306 ms
+Inner_Compute_Time:                     12.181 ms
+Total Compute_Time                      488.193 ms
+Extract_Bitmap_Time                     246.887 ms
+GPU 1
+Outer_Compute_Time(include pre-stage):  253.772 ms
+Inner_Compute_Time:                     14.094 ms
+Total Compute_Time                      456.330 ms
+Extract_Bitmap_Time                     202.558 ms
+GPU 2
+Outer_Compute_Time(include pre-stage):  127.020 ms
+Inner_Compute_Time:                     13.502 ms
+Total Compute_Time                      330.156 ms
+Extract_Bitmap_Time                     203.136 ms
+CPU 
+CPU_Gather_Time:                            209.715 ms
+--------------------------------------------------------
+========= CUDA-MEMCHECK
+========= ERROR SUMMARY: 0 errors
+rmat1..4
+Malloc Finished!
+Reading  /home/xxling/dataset/VGP-master/dist/RMAT16_1-4.vertices.....
+Reading  /home/xxling/dataset/VGP-master/dist/RMAT16_1-4.edges.....
+BFS is running on GPU...............
+Start malloc edgelist...
+Malloc is finished!
+Computing......
+Gather result on cpu....
+Time print
+Total time of bfs_gpu is 72.979 ms
+Elapsed time of bfs_gpu is 10.426 ms
+7 step
+-------------------------------------------------------
+Detail:
+
+GPU 0
+Outer_Compute_Time(include pre-stage):  64.777 ms
+Inner_Compute_Time:                     1.931 ms
+Total Compute_Time                      72.979 ms
+Extract_Bitmap_Time                     8.202 ms
+GPU 1
+Outer_Compute_Time(include pre-stage):  62.757 ms
+Inner_Compute_Time:                     1.958 ms
+Total Compute_Time                      70.224 ms
+Extract_Bitmap_Time                     7.467 ms
+GPU 2
+Outer_Compute_Time(include pre-stage):  62.743 ms
+Inner_Compute_Time:                     1.939 ms
+Total Compute_Time                      70.269 ms
+Extract_Bitmap_Time                     7.526 ms
+GPU 3
+Outer_Compute_Time(include pre-stage):  0.035 ms
+Inner_Compute_Time:                     2.483 ms
+Total Compute_Time                      7.067 ms
+Extract_Bitmap_Time                     7.032 ms
+CPU 
+CPU_Gather_Time:                            7.948 ms
+--------------------------------------------------------
+	Source = 3, Step = 6, Visited = 522999
+	step	visit
+	1	1
+	2	963
+	3	96228
+	4	402768
+	5	22916
+	6	123
+
+Reading  random edgelist /home/xxling/dataset/RMAT16_1.txt_totem again, and storing as csr format.....
+PageRank is running on GPU...............
+Start malloc edgelist...
+Malloc is finished!
+Computing......
+Gather result on cpu....
+Time print
+Total time of pr_gpu is 374.853 ms
+Elapsed time of pr_gpu is 37.485 ms
+-------------------------------------------------------
+Detail:
+
+GPU 0
+Outer_Compute_Time(include pre-stage):  185.930 ms
+Inner_Compute_Time:                     6.365 ms
+Total Compute_Time                      374.853 ms
+Extract_Bitmap_Time                     188.923 ms
+GPU 1
+Outer_Compute_Time(include pre-stage):  192.045 ms
+Inner_Compute_Time:                     7.150 ms
+Total Compute_Time                      345.367 ms
+Extract_Bitmap_Time                     153.322 ms
+GPU 2
+Outer_Compute_Time(include pre-stage):  192.539 ms
+Inner_Compute_Time:                     6.911 ms
+Total Compute_Time                      345.648 ms
+Extract_Bitmap_Time                     153.109 ms
+GPU 3
+Outer_Compute_Time(include pre-stage):  192.278 ms
+Inner_Compute_Time:                     8.117 ms
+Total Compute_Time                      345.880 ms
+Extract_Bitmap_Time                     153.602 ms
+CPU 
+CPU_Gather_Time:                            210.224 ms
+--------------------------------------------------------
+========= CUDA-MEMCHECK
+========= ERROR SUMMARY: 0 errors

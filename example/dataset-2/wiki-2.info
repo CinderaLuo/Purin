@@ -1,8 +1,0 @@
-graphfile: dataset/wiki-talk.txt_totem_vgp
-parts: 2
-algorithm: hdrf (lambda: 1.0)
-
-Replication factor: 1.0135
-Load relative standard deviation: 0.0
-Max partition size (edge cardinality): 2329783
-Max partition size (vertex cardinality): 1216070

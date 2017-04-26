@@ -9,8 +9,8 @@
 #include "cuda_runtime.h"
 
 // The number of partitioning the outer chunk must be greater or equal to 1
-#define ITERATE_IN_OUTER 1
-#define NUM_THREADS 4
+#define ITERATE_IN_OUTER 2
+#define NUM_THREADS 1
 
 #define PAGERANK_COEFFICIENT  0.85f
 #define PAGERANK_THRESHOLD  0.005f
@@ -95,17 +95,17 @@ static __global__ void pr_kernel_inner(
 static __global__ void kernel_extract_values(
 		int const edge_num,
 		int * const edge_dest,
-		float * const d_add_value,
-		float * const d_value
+		float * const add_value,
+		float * const value
 		)
 {
 	int n = blockDim.x * gridDim.x;
 	int index = threadIdx.x + blockIdx.x * blockDim.x;
 	for (int i = index; i < edge_num; i+=n)
 	{
-		int idx=edge_dest[i];
-		d_value[i]=d_add_value[i];
-		d_add_value[i]=0.0f;
+		int dest=edge_dest[i];
+		value[dest]=add_value[dest];
+		add_value[dest]=0.0;
 	}  
 }
 
@@ -134,7 +134,7 @@ void merge_value_on_cpu(
 				}
 				new_value=PAGERANK_COEFFICIENT*new_value+1.0 - PAGERANK_COEFFICIENT;
 				if(fabs(new_value- value_gpu[i]>PAGERANK_THRESHOLD))
-					flag=1;
+					//flag=1;
 				value_gpu[i]=new_value;
 			}		
 		}
@@ -322,8 +322,7 @@ void pr_gpu(Graph **g,int gpu_num,float *value_gpu,DataSize *dsize, int* out_deg
 		{		
 			memset(h_flag[i],0,sizeof(int));
 			cudaSetDevice(i);
-			HANDLE_ERROR(cudaMemcpyAsync(d_flag[i],h_flag[i],sizeof(int),cudaMemcpyHostToDevice,stream[i][0]));
-
+            HANDLE_ERROR(cudaMemset(d_flag[i],0,sizeof(int)));
 			HANDLE_ERROR(cudaEventRecord(start_outer[i], stream[i][0]));
 			//kernel of outer edgelist
 			if (outer_per_size!=0 && outer_per_size < g[i]->edge_outer_num)
@@ -338,7 +337,7 @@ void pr_gpu(Graph **g,int gpu_num,float *value_gpu,DataSize *dsize, int* out_deg
 							d_value[i],
 							d_add_value[i]);
 					//TODO didn't not realize overlap
-					HANDLE_ERROR(cudaMemcpyAsync((void *)(h_add_value[i]),(void *)(d_add_value[i]),sizeof(float)*(vertex_num+1),cudaMemcpyDeviceToHost,stream[i][j-1]));
+					//HANDLE_ERROR(cudaMemcpyAsync((void *)(h_add_value[i]),(void *)(d_add_value[i]),sizeof(float)*(vertex_num+1),cudaMemcpyDeviceToHost,stream[i][j-1]));
 				}
 			}
 
@@ -346,18 +345,18 @@ void pr_gpu(Graph **g,int gpu_num,float *value_gpu,DataSize *dsize, int* out_deg
 			if (last_outer_per_size[i]>0 && iterate_in_outer>1  )
 			{
 				pr_kernel_outer<<<208,128,0,stream[i][iterate_in_outer-1]>>>(
-						outer_per_size,
+						last_outer_per_size[i],
 						d_edge_outer_src[i]+(iterate_in_outer-1)*outer_per_size,
 						d_edge_outer_dst[i]+(iterate_in_outer-1)*outer_per_size,
 						d_outdegree[i],
 						d_value[i],
 						d_add_value[i]);
 				//TODO didn't not realize 
-				HANDLE_ERROR(cudaMemcpyAsync((void *)(h_add_value[i]),(void *)(d_add_value[i]),sizeof(float)*(vertex_num+1),cudaMemcpyDeviceToHost,stream[i][iterate_in_outer-1]));
+				//HANDLE_ERROR(cudaMemcpyAsync((void *)(h_add_value[i]),(void *)(d_add_value[i]),sizeof(float)*(vertex_num+1),cudaMemcpyDeviceToHost,stream[i][iterate_in_outer-1]));
 			}
 			HANDLE_ERROR(cudaEventRecord(stop_outer[i], stream[i][iterate_in_outer-1]));
 
-
+            HANDLE_ERROR(cudaMemcpy((void *)(h_add_value[i]),(void *)(d_add_value[i]),sizeof(float)*(vertex_num+1),cudaMemcpyDeviceToHost));
 			HANDLE_ERROR(cudaEventRecord(start_inner[i], stream[i][iterate_in_outer]));
 			//inner+flag
 			inner_edge_num=g[i]->edge_num-g[i]->edge_outer_num;
@@ -392,7 +391,7 @@ void pr_gpu(Graph **g,int gpu_num,float *value_gpu,DataSize *dsize, int* out_deg
 			HANDLE_ERROR(cudaMemcpyAsync(d_add_value[i], value_gpu,sizeof(float)*(vertex_num+1),cudaMemcpyHostToDevice,stream[i][0]));
 			HANDLE_ERROR(cudaEventRecord(start_asyn[i], stream[i][0]));
 			// d_value copy to the value of outer vertices
-			kernel_extract_values<<<256,108,0,stream[i][0]>>>
+			kernel_extract_values<<<208,128,0,stream[i][0]>>>
 				(  
 				 g[i]->edge_outer_num,
 				 d_edge_outer_dst[i],
@@ -449,7 +448,7 @@ void pr_gpu(Graph **g,int gpu_num,float *value_gpu,DataSize *dsize, int* out_deg
 	total_time=total_time_n>gather_time?total_time_n:gather_time;
 
 	printf("Total time of pr_gpu is %.3f ms\n",total_time);
-	printf("Elapsed time of pr_gpu is %.3f ms\n", total_time/step);
+	printf("Elapsed time of pr_gpu is %.3f ms\n", total_time/(step));
 	printf("-------------------------------------------------------\n");
 	printf("Detail:\n");
 	printf("\n");
@@ -466,7 +465,6 @@ void pr_gpu(Graph **g,int gpu_num,float *value_gpu,DataSize *dsize, int* out_deg
 	printf("--------------------------------------------------------\n");
 
 	//clean
-
 	for (int i = 0; i < gpu_num; ++i)
 	{
 		cudaSetDevice(i);
@@ -485,9 +483,7 @@ void pr_gpu(Graph **g,int gpu_num,float *value_gpu,DataSize *dsize, int* out_deg
 		free(h_flag[i]);
 		free(stream[i]);
 	}
-
 	free(outer_compute_time);
 	free(inner_compute_time);
 	free(compute_time);
-
 }
